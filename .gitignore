@@ -24,3 +24,9 @@ web-ext.config.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Werkzeug-Zwischenstände
+tools/.cache
+# Bildschirmfotos fremder Seiten bleiben lokal (neu erzeugen: node tools/bench/collect.mjs lichess|chesscom)
+tools/bench/samples/
+tools/bench/page/*.png

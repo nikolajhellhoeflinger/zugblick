@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Brett als Bild</title>
+<style>body{margin:0;font:15px system-ui;background:#f4f4f4;color:#222}main{display:flex;gap:40px;padding:40px}img{width:560px;height:560px;display:block}aside{max-width:360px}</style></head>
+<body><main><img id="b" src="chesscom-00.png" alt="Brett"><aside><h1>Partie als Bild</h1><p>Diese Seite zeigt das Brett nur als Bild – kein lesbares HTML.</p></aside></main>
+<script>const seq=['chesscom-00.png','chesscom-01.png','chesscom-03.png','chesscom-05.png'];let i=0;window.next=()=>{i=(i+1)%seq.length;document.getElementById('b').src=seq[i];return seq[i];};</script>
+</body></html>

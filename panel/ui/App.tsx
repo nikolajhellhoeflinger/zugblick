@@ -7,7 +7,7 @@ import type { Controller } from '../controller';
 import { BrandMark } from './Brand';
 import { Hero } from './Hero';
 import { Lines } from './Lines';
-import { GameStrip, LastMoveStrip, PieceCard, ThreatStrip } from './Extras';
+import { GameStrip, LastMoveStrip, PieceCard, ThreatStrip, VisionStrip } from './Extras';
 import { Strength } from './Strength';
 import { SettingsView } from './SettingsView';
 import { IconButton } from './IconButton';
@@ -135,6 +135,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
                 {settings.threat && s.threat && <ThreatStrip state={s} />}
                 {settings.quality && s.last?.quality && <LastMoveStrip state={s} />}
                 <GameStrip state={s} />
+                <VisionStrip state={s} send={send} />
               </div>
             )}
             {!compact && (live || s.phase === 'gameover') && (

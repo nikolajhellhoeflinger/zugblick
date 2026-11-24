@@ -44,7 +44,16 @@ function center(square: string, orientation: Color): [number, number] {
   return [x + 0.5, y + 0.5];
 }
 
-function arrowSvg(a: OverlayArrow, orientation: Color, scale: number): string {
+interface ArrowGeo {
+  d: string;
+  head: [number, number][];
+  width: number;
+  color: string;
+  opacity: number;
+  dashed: boolean;
+}
+
+function arrowGeometry(a: OverlayArrow, orientation: Color, scale: number): ArrowGeo {
   const [x1, y1] = center(a.from, orientation);
   const [x2, y2] = center(a.to, orientation);
   const color = COLORS[a.kind];
@@ -84,42 +93,53 @@ function arrowSvg(a: OverlayArrow, orientation: Color, scale: number): string {
   const nx = -uy;
   const ny = ux;
   const hw = head * 0.62;
-  const poly = (
-    [
+  return {
+    d,
+    head: [
       [tipX, tipY],
       [baseX + nx * hw, baseY + ny * hw],
       [baseX - nx * hw, baseY - ny * hw],
-    ] as [number, number][]
-  )
-    .map((pt) => `${pt[0].toFixed(3)},${pt[1].toFixed(3)}`)
-    .join(' ');
-  return `<g opacity="${opacity.toFixed(2)}">
-    <path d="${d}" fill="none" stroke="${color}" stroke-width="${width.toFixed(3)}" stroke-linejoin="round" ${
-      dashed ? `stroke-dasharray="${(width * 1.4).toFixed(3)} ${(width * 1.1).toFixed(3)}"` : 'stroke-linecap="round"'
+    ],
+    width,
+    color,
+    opacity,
+    dashed,
+  };
+}
+
+function arrowSvg(a: OverlayArrow, orientation: Color, scale: number): string {
+  const g = arrowGeometry(a, orientation, scale);
+  const poly = g.head.map((pt) => `${pt[0].toFixed(3)},${pt[1].toFixed(3)}`).join(' ');
+  return `<g opacity="${g.opacity.toFixed(2)}">
+    <path d="${g.d}" fill="none" stroke="${g.color}" stroke-width="${g.width.toFixed(3)}" stroke-linejoin="round" ${
+      g.dashed ? `stroke-dasharray="${(g.width * 1.4).toFixed(3)} ${(g.width * 1.1).toFixed(3)}"` : 'stroke-linecap="round"'
     }/>
-    <polygon points="${poly}" fill="${color}"/>
+    <polygon points="${poly}" fill="${g.color}"/>
   </g>`;
 }
 
-function focusSvg(square: string, kind: string, orientation: Color, scale: number): string {
+function focusPath(square: string, orientation: Color): string {
   const [cx, cy] = center(square, orientation);
   const x = cx - 0.5;
   const y = cy - 0.5;
   const inset = 0.07;
   const len = 0.26;
-  const w = 0.055 * scale;
-  const color = kind === 'opponent' ? COLORS.opponent : COLORS.best;
   const a = x + inset;
   const b = y + inset;
   const c = x + 1 - inset;
   const e = y + 1 - inset;
-  const path = [
+  return [
     `M${a} ${b + len} L${a} ${b} L${a + len} ${b}`,
     `M${c - len} ${b} L${c} ${b} L${c} ${b + len}`,
     `M${c} ${e - len} L${c} ${e} L${c - len} ${e}`,
     `M${a + len} ${e} L${a} ${e} L${a} ${e - len}`,
   ].join(' ');
-  return `<g class="focus"><path d="${path}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="square"/></g>`;
+}
+
+function focusSvg(square: string, kind: string, orientation: Color, scale: number): string {
+  const w = 0.055 * scale;
+  const color = kind === 'opponent' ? COLORS.opponent : COLORS.best;
+  return `<g class="focus"><path d="${focusPath(square, orientation)}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="square"/></g>`;
 }
 
 const GLYPHS = new Set(['★', '✓', '?!', '?', '??', '!', '!!']);
@@ -146,6 +166,9 @@ export class Overlay {
   private focusKey = '';
   private badgeKey = '';
   private model: OverlayModel | null = null;
+  private drawn: OverlayArrow[] = [];
+  private held = false;
+  private pending: OverlayModel | null = null;
   orientation: Color = 'w';
 
   constructor() {
@@ -201,7 +224,30 @@ export class Overlay {
     if (this.model) this.render(this.model);
   }
 
+  /** Zeichnen anhalten (für ein Bildschirmfoto), Änderungen werden gesammelt. */
+  hold() {
+    this.held = true;
+  }
+
+  /** Für ein sauberes Foto ganz ausblenden (nur bei großen Stellungssprüngen). */
+  hide() {
+    this.held = true;
+    setStyles(this.host, { visibility: 'hidden' });
+  }
+
+  release() {
+    setStyles(this.host, { visibility: 'visible' });
+    this.held = false;
+    const p = this.pending;
+    this.pending = null;
+    if (p) this.render(p);
+  }
+
   render(model: OverlayModel) {
+    if (this.held) {
+      this.pending = model;
+      return;
+    }
     this.model = model;
     const o = this.orientation;
     const s = model.scale;
@@ -209,6 +255,7 @@ export class Overlay {
     const ordered = model.arrows
       .filter((a) => squareIndex(a.from) >= 0 && squareIndex(a.to) >= 0 && a.from !== a.to && a.kind in COLORS)
       .sort((a, b) => (a.kind === 'alt' ? 0 : 1) - (b.kind === 'alt' ? 0 : 1));
+    this.drawn = ordered;
     this.arrowsLayer.innerHTML = ordered.map((a) => arrowSvg(a, o, s)).join('');
     const fKey = model.focus.map((f) => f.square + f.kind).join('|') + s;
     if (fKey !== this.focusKey) {
@@ -226,8 +273,54 @@ export class Overlay {
     }
   }
 
+  /**
+   * Welche Pixel des Bretts hat Zugblick selbst übermalt? (für die Bilderkennung,
+   * die diese Stellen ignoriert, statt die Pfeile zum Fotografieren auszublenden)
+   */
+  mask(size: number): Uint8Array | null {
+    const m = this.model;
+    if (!m || (!this.drawn.length && !m.focus.length && !m.badge)) return null;
+    const c = new OffscreenCanvas(size, size);
+    const g = c.getContext('2d')!;
+    g.scale(size / 8, size / 8);
+    g.strokeStyle = '#000';
+    g.fillStyle = '#000';
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    const o = this.orientation;
+    for (const a of this.drawn) {
+      const geo = arrowGeometry(a, o, m.scale);
+      g.lineWidth = geo.width + 0.08;
+      g.stroke(new Path2D(geo.d));
+      const head = new Path2D();
+      geo.head.forEach(([x, y], i) => (i ? head.lineTo(x, y) : head.moveTo(x, y)));
+      head.closePath();
+      g.fill(head);
+      g.lineWidth = 0.08;
+      g.stroke(head);
+    }
+    g.lineCap = 'square';
+    for (const f of m.focus) {
+      if (squareIndex(f.square) < 0) continue;
+      g.lineWidth = 0.055 * m.scale + 0.07;
+      g.stroke(new Path2D(focusPath(f.square, o)));
+    }
+    if (m.badge && squareIndex(m.badge.square) >= 0) {
+      const [cx, cy] = center(m.badge.square, o);
+      const r = 0.19 * m.scale;
+      g.beginPath();
+      g.arc(cx + 0.5 - r * 0.85, cy - 0.5 + r * 0.85, r + 0.05, 0, Math.PI * 2);
+      g.fill();
+    }
+    const d = g.getImageData(0, 0, size, size).data;
+    const out = new Uint8Array(size * size);
+    for (let i = 0; i < out.length; i++) out[i] = d[i * 4 + 3]! > 0 ? 1 : 0;
+    return out;
+  }
+
   clear() {
     this.model = null;
+    this.drawn = [];
     this.focusKey = '';
     this.badgeKey = '';
     this.arrowsLayer.innerHTML = '';

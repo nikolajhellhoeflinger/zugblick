@@ -1,4 +1,5 @@
-import { X } from 'lucide-react';
+import { X, ScanLine } from 'lucide-react';
+import type { ToContent } from '@/lib/protocol';
 import type { Tone } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
 import type { State } from '../controller';
@@ -147,6 +148,34 @@ export function GameStrip({ state: s }: { state: State }) {
           <span title="Schwarz">S {b ?? '–'}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function VisionStrip({ state: s, send }: { state: State; send: (m: ToContent) => void }) {
+  const v = s.vision;
+  if (s.source !== 'bild' || v.phase === 'off') return null;
+  const learned = v.phase === 'scanning' && v.learned;
+  return (
+    <div className="flex items-center gap-2 border-t border-line px-4 py-2 text-[12px]">
+      <ScanLine className="size-3.5 shrink-0 text-ink-3" />
+      <span className="min-w-0 flex-1 truncate text-ink-2">
+        {learned ? 'Figuren dieser Seite gelernt' : 'Grundstellung zeigen = sichere Erkennung'}
+      </span>
+      <button
+        type="button"
+        onClick={() => send({ type: 'vision', action: 'mark' })}
+        className="rounded px-1.5 py-0.5 font-[600] text-ink-2 hover:bg-sunken hover:text-ink"
+      >
+        Neu
+      </button>
+      <button
+        type="button"
+        onClick={() => send({ type: 'vision', action: 'stop' })}
+        className="rounded px-1.5 py-0.5 font-[600] text-ink-3 hover:bg-sunken hover:text-ink"
+      >
+        Beenden
+      </button>
     </div>
   );
 }

@@ -44,9 +44,9 @@ export type ToPanel =
 
 export type VisionState =
   | { phase: 'off' }
+  | { phase: 'searching' }
   | { phase: 'marking' }
-  | { phase: 'scanning' }
-  | { phase: 'learn'; message: string }
+  | { phase: 'scanning'; learned: boolean }
   | { phase: 'error'; message: string };
 
 export type ToContent =

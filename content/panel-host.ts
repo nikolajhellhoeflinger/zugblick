@@ -118,6 +118,10 @@ export class PanelHost {
     this.onMessage(msg);
   }
 
+  rect(): DOMRect {
+    return this.frame.getBoundingClientRect();
+  }
+
   send(msg: ToPanel) {
     if (this.port) this.port.postMessage(msg);
     else {

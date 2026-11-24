@@ -101,7 +101,29 @@ export default defineContentScript({
         dismissed = true;
         deactivate();
       } else if (msg.type === 'vision') {
-        if (!vision) vision = new Vision(ctx, (read) => sendRead(read), (state) => host?.send({ type: 'vision', state }));
+        if (!vision) {
+          vision = new Vision(
+            ctx,
+            (read) => {
+              overlay?.place(rect());
+              sendRead(read);
+            },
+            (state) => {
+              host?.send({ type: 'vision', state });
+              if (state.phase === 'off' && active) {
+                lastKey = '';
+                readNow();
+              }
+            },
+            {
+              hold: () => overlay?.hold(),
+              hide: () => overlay?.hide(),
+              release: () => overlay?.release(),
+              mask: (size) => overlay?.mask(size) ?? null,
+            },
+            () => host?.rect() ?? null,
+          );
+        }
         if (msg.action === 'mark') {
           observer?.disconnect();
           current = null;
@@ -109,9 +131,8 @@ export default defineContentScript({
           vision.mark();
         } else if (msg.action === 'stop') {
           vision.stop();
-          lastKey = '';
-          readNow();
         } else if (msg.action === 'learn') vision.learnStart();
+        // (Stop setzt den DOM-Leser über den Zustand 'off' wieder in Gang.)
         else if (msg.action === 'forget') vision.forget();
       }
     };

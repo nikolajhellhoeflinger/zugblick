@@ -141,6 +141,27 @@ function inferTurn(read: BoardRead): { turn: Color; certain: boolean } {
   return { turn: 'w', certain: false };
 }
 
+/**
+ * Würde Stockfish an dieser Stellung abstürzen? (König schlagbar, Könige nebeneinander)
+ * Liefert die passende Zugseite oder null, wenn die Stellung unmöglich ist.
+ */
+function safeTurn(game: Chess, wanted: Color): Color | null {
+  const kingSq = (c: Color) => game.findPiece({ type: 'k', color: c })[0];
+  const wk = kingSq('w');
+  const bk = kingSq('b');
+  if (!wk || !bk) return null;
+  const df = Math.abs(wk.charCodeAt(0) - bk.charCodeAt(0));
+  const dr = Math.abs(Number(wk[1]) - Number(bk[1]));
+  if (df <= 1 && dr <= 1) return null;
+  const wInCheck = game.isAttacked(wk, 'b');
+  const bInCheck = game.isAttacked(bk, 'w');
+  if (wInCheck && bInCheck) return null;
+  // Wer im Schach steht, muss ziehen.
+  if (wInCheck) return 'w';
+  if (bInCheck) return 'b';
+  return wanted;
+}
+
 export class Controller {
   private listeners = new Set<() => void>();
   private overlayListener: ((m: OverlayModel) => void) | null = null;
@@ -311,10 +332,31 @@ export class Controller {
     }
 
     this.lastPlacement = read.placement;
-    const game = this.game;
+    let game = this.game;
     if (!game) {
+      this.stopAll();
       this.set({ phase: 'invalid' });
       return;
+    }
+    const safe = safeTurn(game, game.turn());
+    if (!safe) {
+      this.stopAll();
+      this.game = null;
+      this.lastPlacement = '';
+      this.set({ phase: 'invalid', source: read.source, orientation: read.orientation, lines: [], best: null });
+      return;
+    }
+    if (safe !== game.turn()) {
+      const parts = game.fen().split(' ');
+      parts[1] = safe;
+      parts[3] = '-';
+      const fixed = load(parts.join(' '));
+      if (fixed) {
+        this.game = game = fixed;
+        turnCertain = true;
+      }
+    } else if (!turnCertain && game.inCheck()) {
+      turnCertain = true;
     }
 
     let last: State['last'] = null;
@@ -436,6 +478,8 @@ export class Controller {
     if (!game) return;
     const parts = game.fen().split(' ');
     const turn: Color = parts[1] === 'w' ? 'b' : 'w';
+    // Seite im Schach kann nicht „nicht am Zug“ sein – Wechsel wäre eine unmögliche Stellung.
+    if (safeTurn(game, turn) !== turn) return;
     parts[1] = turn;
     parts[3] = '-';
     this.turnOverride.set(this.lastPlacement, turn);

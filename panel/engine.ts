@@ -77,14 +77,43 @@ export class Engine {
   private dead = false;
   onError?: (msg: string) => void;
 
-  constructor(url: string) {
-    this.worker = new Worker(url);
-    this.worker.onmessage = (e) => this.onLine(String(e.data));
-    this.worker.onerror = (e) => {
-      this.dead = true;
-      this.onError?.(e.message || 'Stockfish konnte nicht starten.');
+  private restarts = 0;
+  private started = false;
+
+  constructor(private url: string) {
+    this.worker = this.spawn();
+  }
+
+  private spawn(): Worker {
+    const w = new Worker(this.url);
+    w.onmessage = (e) => this.onLine(String(e.data));
+    w.onerror = (e) => {
+      e.preventDefault?.();
+      this.recover(e.message || 'Stockfish konnte nicht starten.');
     };
-    this.post('uci');
+    w.postMessage('uci');
+    return w;
+  }
+
+  /** Absturz (z. B. unmögliche Stellung): Worker neu starten, laufende Suche verwerfen. */
+  private recover(msg: string) {
+    try {
+      this.worker.terminate();
+    } catch {
+      /* egal */
+    }
+    if (!this.started || this.restarts >= 5) {
+      this.dead = true;
+      this.onError?.(msg);
+      return;
+    }
+    this.restarts++;
+    this.current = null;
+    this.searching = false;
+    this.stopping = false;
+    this.isReady = false;
+    this.opts = { multipv: -1, limit: false, elo: -1 };
+    this.worker = this.spawn();
   }
 
   ready(): Promise<void> {
@@ -172,6 +201,7 @@ export class Engine {
     }
     if (line === 'readyok' && !this.isReady) {
       this.isReady = true;
+      this.started = true;
       for (const w of this.readyWaiters) w();
       this.readyWaiters = [];
       if (this.pending) this.startPending();

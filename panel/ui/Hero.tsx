@@ -73,11 +73,20 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
 
   if (s.phase === 'no-board') {
     const v = s.vision;
+    const title =
+      v.phase === 'marking'
+        ? 'Rahmen um das Brett ziehen'
+        : v.phase === 'searching'
+          ? 'Suche das Brett'
+          : v.phase === 'scanning'
+            ? 'Lese die Stellung'
+            : 'Kein Brett erkannt';
+    const busy = v.phase === 'searching' || v.phase === 'scanning';
     return (
-      <Message icon={<ScanLine />} title={v.phase === 'marking' ? 'Rahmen um das Brett ziehen' : 'Kein Brett erkannt'}>
+      <Message icon={busy ? <LoaderCircle className="animate-spin" /> : <ScanLine />} title={title}>
         {v.phase === 'error' && <p className="mt-1 text-[12.5px] text-threat">{v.message}</p>}
-        {v.phase === 'learn' && <p className="mt-1 text-[12.5px] text-ink-2">{v.message}</p>}
-        {v.phase !== 'marking' && (
+        {v.phase === 'marking' && <p className="mt-1 text-[12.5px] text-ink-3">Esc bricht ab.</p>}
+        {(v.phase === 'off' || v.phase === 'error') && (
           <Button
             size="sm"
             className="mt-3 h-8 rounded-md px-3 text-[12.5px] font-[650]"

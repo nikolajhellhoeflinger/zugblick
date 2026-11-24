@@ -1,0 +1,58 @@
+// Nachrichten zwischen Inhalts-Skript (liest das Brett, zeichnet Pfeile)
+// und Panel (rechnet mit Stockfish, zeigt die Oberfläche).
+import type { Color } from './board';
+
+export type SourceId = 'chess.com' | 'lichess' | 'chessground' | 'chessboard.js' | 'bild';
+
+export interface BoardRead {
+  /** Platzierungsteil der FEN. */
+  placement: string;
+  /** Farbe, die unten steht. */
+  orientation: Color;
+  /** Hervorgehobene Felder des letzten Zugs (falls die Seite sie zeigt). */
+  lastMove: string[];
+  source: SourceId;
+  /** Analysebrett (beide Seiten „du“) statt Partie gegen jemanden. */
+  analysis: boolean;
+}
+
+export type ArrowKind = 'best' | 'alt' | 'piece' | 'threat' | 'opponent' | 'preview';
+export type Tone = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+
+export interface OverlayArrow {
+  from: string;
+  to: string;
+  kind: ArrowKind;
+  /** 0–1, steuert Deckkraft und Breite. */
+  weight: number;
+}
+
+export interface OverlayModel {
+  arrows: OverlayArrow[];
+  focus: { square: string; kind: 'best' | 'piece' | 'opponent' }[];
+  badge: { square: string; glyph: string; tone: Tone } | null;
+  scale: number;
+  dark: boolean;
+}
+
+export type ToPanel =
+  | { type: 'board'; read: BoardRead }
+  | { type: 'no-board' }
+  | { type: 'select'; square: string | null }
+  | { type: 'host'; host: string; path: string }
+  | { type: 'vision'; state: VisionState };
+
+export type VisionState =
+  | { phase: 'off' }
+  | { phase: 'marking' }
+  | { phase: 'scanning' }
+  | { phase: 'learn'; message: string }
+  | { phase: 'error'; message: string };
+
+export type ToContent =
+  | { type: 'ready' }
+  | { type: 'overlay'; overlay: OverlayModel }
+  | { type: 'size'; width: number; height: number }
+  | { type: 'drag'; phase: 'start' | 'move' | 'end'; screenX: number; screenY: number }
+  | { type: 'close' }
+  | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

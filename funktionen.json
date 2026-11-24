@@ -166,8 +166,9 @@
     "schritte": [
       "Schalter einschalten",
       "beide Seiten ziehen selbst, deine Züge nach 1–4 s, Leiste „Zugblick zieht für dich“",
-      "Schalter aus: Stellung bleibt stehen, bis du ziehst"
+      "Schalter aus: Stellung bleibt stehen, bis du ziehst",
+      "live geprüft 24.11.: 6 eigene Züge nach 1,3–3,9 s, aus = 8 s Stillstand"
     ],
-    "geprueft": false
+    "geprueft": true
   }
 ]

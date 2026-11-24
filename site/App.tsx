@@ -9,7 +9,7 @@ import { BrandMark } from '@/panel/ui/Brand';
 import { San } from '@/panel/ui/Figurine';
 import { uciParts } from '@/panel/notation';
 import { Board } from './Board';
-import { HumanBot, type Choice } from './bot';
+import { ChessBot1, type Choice } from './bot';
 
 type Side = 'w' | 'b';
 type Pick = Side | 'r';
@@ -55,7 +55,7 @@ declare global {
 }
 
 export function App() {
-  const bot = useMemo(() => new HumanBot(ENGINE), []);
+  const bot = useMemo(() => new ChessBot1(ENGINE), []);
   const game = useRef(new Chess());
   const gameId = useRef(0);
   const log = useRef<Choice[]>([]);

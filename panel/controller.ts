@@ -14,7 +14,7 @@ import type { BoardRead, OverlayArrow, OverlayModel, SourceId, Tone, VisionState
 import { ChessBot1 } from '@/site/bot';
 import { Engine, type InfoLine, type Score } from './engine';
 import { describe, load, moveFromUci, playUci, pvToSan, toWhite, winPct } from './notation';
-import { DEFAULTS, DEPTH, loadSettings, saveSettings, TEMPO, type Settings } from './settings';
+import { DEFAULTS, DEPTH, loadSettings, saveSettings, type Settings } from './settings';
 
 export interface MoveView {
   uci: string;
@@ -278,11 +278,18 @@ export class Controller {
     this.set({ autoplay: on });
   }
 
-  /** Bedenkzeit: unregelmäßig – meist kurz, manchmal lang. */
+  /** Bedenkzeit nach den Einstellungen von/bis, gleichmäßig oder unregelmäßig (meist kurz, manchmal lang). */
   private thinkDelay(): number {
-    const [a, b] = TEMPO[this.state.settings.tempo];
-    const u = Math.random() < 0.7 ? Math.pow(Math.random(), 1.4) * 0.6 : 0.5 + Math.random() * 0.5;
-    return (a + (b - a) * u) * 1000;
+    const { tempoMin: a, tempoMax: b, tempoArt } = this.state.settings;
+    const lo = Math.min(a, b);
+    const hi = Math.max(a, b);
+    const u =
+      tempoArt === 'gleich'
+        ? Math.random()
+        : Math.random() < 0.7
+          ? Math.pow(Math.random(), 1.4) * 0.6
+          : 0.5 + Math.random() * 0.5;
+    return (lo + (hi - lo) * u) * 1000;
   }
 
   private autoplayTick() {

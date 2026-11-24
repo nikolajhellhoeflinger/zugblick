@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import { ScanLine } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ToContent } from '@/lib/protocol';
 import type { Controller, State } from '../controller';
 import type { Settings } from '../settings';
+
+const fmt = (n: number) => n.toFixed(1).replace('.', ',').replace(/,0$/, '');
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -96,16 +99,29 @@ export function SettingsView({
       </Group>
 
       <Group title="Spielen">
-        <Row label="Tempo">
+        <Row label="Bedenkzeit" hint={`${fmt(st.tempoMin)} bis ${fmt(st.tempoMax)} Sekunden`}>
+          <span />
+        </Row>
+        <div className="px-4 pb-2">
+          <Slider
+            min={0.3}
+            max={15}
+            step={0.1}
+            minStepsBetweenThumbs={1}
+            value={[st.tempoMin, st.tempoMax]}
+            onValueChange={([a, b]) => up({ tempoMin: a!, tempoMax: b! })}
+            aria-label="Bedenkzeit von bis"
+          />
+        </div>
+        <Row label="Verteilung">
           <Segments
-            label="Tempo"
-            value={st.tempo}
+            label="Verteilung"
+            value={st.tempoArt}
             options={[
-              { value: 'ruhig', label: 'Ruhig' },
-              { value: 'normal', label: 'Normal' },
-              { value: 'zuegig', label: 'Zügig' },
+              { value: 'unregelmaessig', label: 'Unregelmäßig' },
+              { value: 'gleich', label: 'Gleichmäßig' },
             ]}
-            onChange={(tempo) => up({ tempo })}
+            onChange={(tempoArt) => up({ tempoArt })}
           />
         </Row>
       </Group>

@@ -14,7 +14,7 @@ import type { BoardRead, OverlayArrow, OverlayModel, SourceId, Tone, VisionState
 import { ChessBot1 } from '@/site/bot';
 import { Engine, type InfoLine, type Score } from './engine';
 import { describe, load, moveFromUci, playUci, pvToSan, toWhite, winPct } from './notation';
-import { DEFAULTS, DEPTH, loadSettings, saveSettings, type Settings } from './settings';
+import { DEFAULTS, DEPTH, loadSettings, saveSettings, TEMPO, type Settings } from './settings';
 
 export interface MoveView {
   uci: string;
@@ -80,6 +80,8 @@ export interface State {
   vision: VisionState;
   engineError: string | null;
   preview: string | null;
+  /** Zugblick zieht für dich (nur in Partien, nicht auf Analysebrettern). */
+  autoplay: boolean;
   settings: Settings;
 }
 
@@ -200,6 +202,10 @@ export class Controller {
   private cand: string | null = null;
   private candSince = 0;
   private onlyMove = false;
+  private playTimer = 0;
+  private playTimerFen = '';
+  private playedKey = '';
+  private playListener: ((m: { from: string; to: string; promotion: boolean }) => void) | null = null;
 
   state: State = {
     phase: 'connecting',
@@ -228,6 +234,7 @@ export class Controller {
     vision: { phase: 'off' },
     engineError: null,
     preview: null,
+    autoplay: false,
     settings: DEFAULTS,
   };
 
@@ -260,8 +267,53 @@ export class Controller {
     this.overlayListener = fn;
   }
 
+  onPlay(fn: (m: { from: string; to: string; promotion: boolean }) => void) {
+    this.playListener = fn;
+  }
+
+  setAutoplay(on: boolean) {
+    this.playedKey = '';
+    window.clearTimeout(this.playTimer);
+    this.playTimerFen = '';
+    this.set({ autoplay: on });
+  }
+
+  /** Bedenkzeit: unregelmäßig – meist kurz, manchmal lang. */
+  private thinkDelay(): number {
+    const [a, b] = TEMPO[this.state.settings.tempo];
+    const u = Math.random() < 0.7 ? Math.pow(Math.random(), 1.4) * 0.6 : 0.5 + Math.random() * 0.5;
+    return (a + (b - a) * u) * 1000;
+  }
+
+  private autoplayTick() {
+    const s = this.state;
+    const ready =
+      s.autoplay && s.phase === 'live' && !s.analysisBoard && !s.gameOver && s.fen && s.best && s.settled && s.turn === s.orientation;
+    if (!ready) {
+      if (this.playTimer && (!s.autoplay || s.fen !== this.playTimerFen)) {
+        window.clearTimeout(this.playTimer);
+        this.playTimer = 0;
+        this.playTimerFen = '';
+      }
+      return;
+    }
+    const key = fenKey(s.fen!);
+    if (key === this.playedKey) return;
+    if (this.playTimer && this.playTimerFen === key) return;
+    window.clearTimeout(this.playTimer);
+    this.playTimerFen = key;
+    this.playTimer = window.setTimeout(() => {
+      this.playTimer = 0;
+      const now = this.state;
+      if (!now.autoplay || !now.fen || !now.best || fenKey(now.fen) !== key || now.turn !== now.orientation) return;
+      this.playedKey = key;
+      this.playListener?.({ from: now.best.from, to: now.best.to, promotion: now.best.uci.length > 4 });
+    }, this.thinkDelay());
+  }
+
   private set(patch: Partial<State>) {
     this.state = { ...this.state, ...patch };
+    this.autoplayTick();
     if (this.emitQueued) return;
     this.emitQueued = true;
     requestAnimationFrame(() => {

@@ -59,4 +59,5 @@ export type ToContent =
   | { type: 'size'; width: number; height: number }
   | { type: 'drag'; phase: 'start' | 'move' | 'end'; screenX: number; screenY: number }
   | { type: 'close' }
+  | { type: 'play'; from: string; to: string; promotion: boolean }
   | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

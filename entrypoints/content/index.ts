@@ -2,7 +2,7 @@ import { findFenTurn, pickAdapter, type BoardAdapter } from '@/content/readers';
 import { Overlay } from '@/content/overlay';
 import { PanelHost } from '@/content/panel-host';
 import { Vision } from '@/content/vision';
-import { squareName, type Color } from '@/lib/board';
+import { squareIndex, squareName, type Color } from '@/lib/board';
 import type { BoardRead, ToContent } from '@/lib/protocol';
 
 /** Automatisch öffnen nur bei Brettern ab dieser Kantenlänge (keine Vorschaubilder). */
@@ -24,6 +24,42 @@ export default defineContentScript({
     let readTimer = 0;
     let lastRect = '';
     let vision: Vision | null = null;
+    let synthetic = false;
+
+    /** Ein Mausklick auf ein Feld, so wie ihn die Seite von einer Hand bekäme. */
+    const clickSquare = (square: string) => {
+      const r = rect();
+      if (!r) return;
+      const i = squareIndex(square);
+      const file = i % 8;
+      const rank = Math.floor(i / 8);
+      const col = orientation === 'w' ? file : 7 - file;
+      const row = orientation === 'w' ? 7 - rank : rank;
+      const x = r.left + ((col + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.width;
+      const y = r.top + ((row + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.height;
+      const target = document.elementFromPoint(x, y);
+      if (!target) return;
+      const base = { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse' };
+      synthetic = true;
+      try {
+        target.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
+        target.dispatchEvent(new MouseEvent('mousedown', { ...base, buttons: 1 }));
+        target.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0 }));
+        target.dispatchEvent(new MouseEvent('mouseup', { ...base, buttons: 0 }));
+        target.dispatchEvent(new MouseEvent('click', { ...base, buttons: 0 }));
+      } finally {
+        synthetic = false;
+      }
+    };
+
+    const playMove = (from: string, to: string, promotion: boolean) => {
+      clickSquare(from);
+      window.setTimeout(() => {
+        clickSquare(to);
+        // Umwandlung: Die Dame steht in der Auswahl auf dem Zielfeld.
+        if (promotion) window.setTimeout(() => clickSquare(to), 380);
+      }, 220 + Math.random() * 260);
+    };
 
     const rect = (): DOMRect | null => {
       if (vision?.active) return vision.rect();
@@ -98,6 +134,8 @@ export default defineContentScript({
       if (msg.type === 'overlay') {
         overlay?.render(msg.overlay);
         overlay?.place(rect());
+      } else if (msg.type === 'play') {
+        playMove(msg.from, msg.to, msg.promotion);
       } else if (msg.type === 'close') {
         dismissed = true;
         deactivate();
@@ -167,7 +205,7 @@ export default defineContentScript({
       window,
       'pointerdown',
       (e: PointerEvent) => {
-        if (!active || e.button !== 0) return;
+        if (!active || synthetic || e.button !== 0) return;
         const r = rect();
         if (!r) return;
         const x = e.clientX - r.left;

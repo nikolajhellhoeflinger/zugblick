@@ -17,6 +17,7 @@ function send(msg: ToContent) {
 }
 
 controller.onOverlay((overlay) => send({ type: 'overlay', overlay }));
+controller.onPlay((m) => send({ type: 'play', ...m }));
 
 // Der Schlüssel kommt über das Adress-Fragment, das nur das Inhalts-Skript kennt.
 const nonce = location.hash.slice(1);

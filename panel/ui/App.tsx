@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ChevronDown, ChevronUp, Settings2, X, ArrowLeft } from 'lucide-react';
+import { ChevronDown, ChevronUp, Settings2, X, ArrowLeft, Play, Square } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ToContent } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
@@ -128,6 +128,23 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
         ) : (
           <>
             <Hero state={s} controller={controller} send={send} />
+            {live && !s.analysisBoard && (
+              <div className="border-t border-line px-4 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => controller.setAutoplay(!s.autoplay)}
+                  className={cn(
+                    'flex h-10 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-[650] transition-colors',
+                    s.autoplay
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-line-strong text-ink hover:bg-sunken',
+                  )}
+                >
+                  {s.autoplay ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
+                  {s.autoplay ? 'Ausschalten' : 'Anschalten'}
+                </button>
+              </div>
+            )}
             {!compact && live && (
               <div className={cn('zb-rise')}>
                 {s.piece && <PieceCard state={s} onClear={() => controller.select(null)} />}

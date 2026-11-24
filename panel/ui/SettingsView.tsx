@@ -95,6 +95,21 @@ export function SettingsView({
         </Row>
       </Group>
 
+      <Group title="Spielen">
+        <Row label="Tempo">
+          <Segments
+            label="Tempo"
+            value={st.tempo}
+            options={[
+              { value: 'ruhig', label: 'Ruhig' },
+              { value: 'normal', label: 'Normal' },
+              { value: 'zuegig', label: 'Zügig' },
+            ]}
+            onChange={(tempo) => up({ tempo })}
+          />
+        </Row>
+      </Group>
+
       <Group title="Auf dem Brett">
         <Row label="Pfeile">
           <Segments

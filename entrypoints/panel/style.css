@@ -26,6 +26,9 @@
   --zb-bar-white: #f4f4f5;
   --zb-bar-black: #1a1d23;
   --zb-knob: #fafafa;
+  --zb-switch-off-track: #f3f4f6;
+  --zb-switch-off-border: #8e8e93;
+  --zb-switch-off-knob: #8e8e93;
 
   --background: var(--zb-surface);
   --foreground: var(--zb-ink);
@@ -64,6 +67,9 @@
   --zb-blunder: #f06262;
   --zb-bar-white: #e8e9ec;
   --zb-bar-black: #07080a;
+  --zb-switch-off-track: #3a3f4a;
+  --zb-switch-off-border: transparent;
+  --zb-switch-off-knob: #fafafa;
 }
 
 @theme inline {

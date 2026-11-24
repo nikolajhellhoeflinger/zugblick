@@ -42,7 +42,7 @@ export function San({
     <span className={cn('whitespace-nowrap', className)}>
       {piece && <PieceIcon code={piece} className="mr-[0.06em]" />}
       {disamb}
-      {capture && <span className="opacity-70">×</span>}
+      {capture && <span data-part="x" className="opacity-70">×</span>}
       <span className={framed ? 'zb-target' : undefined}>{target}</span>
       {promo && (
         <>
@@ -50,7 +50,11 @@ export function San({
           <PieceIcon code={promo} />
         </>
       )}
-      {suffix && <span className="ml-[0.04em]">{suffix}</span>}
+      {suffix && (
+        <span data-part="sfx" className="ml-[0.04em]">
+          {suffix}
+        </span>
+      )}
     </span>
   );
 }

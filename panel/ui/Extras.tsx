@@ -88,7 +88,7 @@ export function LastMoveStrip({ state: s }: { state: State }) {
   const last = s.last!;
   const q = last.quality!;
   return (
-    <div className="flex h-10 items-center gap-2.5 border-t border-line px-4 text-[12.5px]">
+    <div className="flex h-8 items-center gap-2.5 px-4 text-[12.5px]">
       <QualityDot tone={q.tone} glyph={q.glyph} />
       <span className="text-ink-3">Letzter Zug</span>
       <San san={last.move.san} color={last.mover} className="font-[700] text-ink" />
@@ -119,12 +119,11 @@ export function GameStrip({ state: s }: { state: State }) {
   const { w, b } = s.accuracy;
   if (s.moves.length < 4 || (w == null && b == null)) return null;
   return (
-    <div className="flex h-9 items-center gap-3 border-t border-line px-4 text-[12px]">
+    <div className="flex h-8 items-center gap-3 px-4 text-[12px]">
       <span className="text-ink-3">Genauigkeit</span>
-      <span className="ml-auto font-mono text-ink-2 tabular-nums">
-        Weiß {w ?? '–'}
-        <span className="mx-2 text-line-strong">|</span>
-        Schwarz {b ?? '–'}
+      <span className="ml-auto flex gap-4 font-mono text-ink-2 tabular-nums">
+        <span>Weiß {w ?? '–'}</span>
+        <span>Schwarz {b ?? '–'}</span>
       </span>
     </div>
   );

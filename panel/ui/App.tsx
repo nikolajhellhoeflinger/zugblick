@@ -133,8 +133,12 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
                 {s.piece && <PieceCard state={s} onClear={() => controller.select(null)} />}
                 <Lines state={s} onPreview={(u) => controller.setPreview(u)} />
                 {settings.threat && s.threat && <ThreatStrip state={s} />}
-                {settings.quality && s.last?.quality && <LastMoveStrip state={s} />}
-                <GameStrip state={s} />
+                {((settings.quality && s.last?.quality) || s.moves.length >= 4) && (
+                  <div className="border-t border-line py-1.5 empty:hidden">
+                    {settings.quality && s.last?.quality && <LastMoveStrip state={s} />}
+                    <GameStrip state={s} />
+                  </div>
+                )}
                 <VisionStrip state={s} send={send} />
               </div>
             )}

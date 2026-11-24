@@ -169,6 +169,8 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
                   'zb-rise text-[46px] leading-[0.95] font-[800] tracking-[-0.035em]',
                   mine ? 'text-ink' : 'text-ink-2',
                   '[&_.zb-target]:text-[var(--zb-accent)]',
+                  '[&_[data-part=x]]:mx-[0.06em] [&_[data-part=x]]:align-[0.12em] [&_[data-part=x]]:text-[0.43em] [&_[data-part=x]]:font-[500] [&_[data-part=x]]:text-ink-3 [&_[data-part=x]]:opacity-100',
+                  '[&_[data-part=sfx]]:ml-[0.08em] [&_[data-part=sfx]]:align-[0.95em] [&_[data-part=sfx]]:text-[0.45em] [&_[data-part=sfx]]:font-[600] [&_[data-part=sfx]]:text-ink-3',
                   !mine && '[&_.zb-target]:text-opponent',
                 )}
               />

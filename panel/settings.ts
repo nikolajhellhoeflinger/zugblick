@@ -1,6 +1,8 @@
 export interface Settings {
   /** null = volle Stockfish-Stärke. */
   elo: number | null;
+  /** Chess Bot 1 statt Stockfish-Stärke (dann ist `elo` null). */
+  bot: boolean;
   lines: number;
   arrows: 'all' | 'best' | 'off';
   depth: 'fast' | 'normal' | 'deep';
@@ -15,6 +17,7 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   elo: null,
+  bot: false,
   lines: 3,
   arrows: 'all',
   depth: 'normal',

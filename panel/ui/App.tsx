@@ -143,7 +143,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
               </div>
             )}
             {!compact && (live || s.phase === 'gameover') && (
-              <Strength value={settings.elo} onChange={(elo) => controller.updateSettings({ elo })} />
+              <Strength elo={settings.elo} bot={settings.bot} onChange={(patch) => controller.updateSettings(patch)} />
             )}
           </>
         )}

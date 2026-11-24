@@ -11,6 +11,7 @@ import {
   type PieceCode,
 } from '@/lib/board';
 import type { BoardRead, OverlayArrow, OverlayModel, SourceId, Tone, VisionState } from '@/lib/protocol';
+import { ChessBot1 } from '@/site/bot';
 import { Engine, type InfoLine, type Score } from './engine';
 import { describe, load, moveFromUci, playUci, pvToSan, toWhite, winPct } from './notation';
 import { DEFAULTS, DEPTH, loadSettings, saveSettings, type Settings } from './settings';
@@ -69,7 +70,7 @@ export interface State {
   best: (MoveView & { score?: Score }) | null;
   /** Der angezeigte Zug steht fest (sonst: Stockfish rechnet noch, Zug ist vorläufig). */
   settled: boolean;
-  bestSource: 'engine' | 'elo';
+  bestSource: 'engine' | 'elo' | 'bot';
   piece: PieceView | null;
   threat: MoveView | null;
   last: { move: MoveView; mover: Color; quality: Quality | null } | null;
@@ -190,6 +191,7 @@ export class Controller {
   private moveFens: { prevFen: string; fen: string; uci: string }[] = [];
   private analysis: Engine;
   private player: Engine | null = null;
+  private bot: ChessBot1 | null = null;
   private pieceEngine: Engine | null = null;
   private threatEngine: Engine | null = null;
   private engineReady = false;
@@ -490,7 +492,7 @@ export class Controller {
     saveSettings(settings);
     this.set({ settings, maxDepth: DEPTH[settings.depth] });
     const needsRestart =
-      patch.lines != null || patch.depth != null || patch.elo !== undefined || patch.threat != null;
+      patch.lines != null || patch.depth != null || patch.elo !== undefined || patch.bot !== undefined || patch.threat != null;
     if (needsRestart) this.analyze();
   }
 
@@ -550,6 +552,7 @@ export class Controller {
   private stopAll() {
     this.analysis.stop();
     this.player?.stop();
+    this.bot?.cancel();
     this.pieceEngine?.stop();
     this.threatEngine?.stop();
   }
@@ -573,7 +576,7 @@ export class Controller {
       onInfo: (info) => this.onInfo(fen, turn, info),
       onDone: (bm) => {
         // Suche fertig: Stockfishs letztes Wort gilt – außer der gezeigte Zug ist praktisch gleich gut.
-        if (this.state.fen !== fen || !bm || this.state.settings.elo != null) return;
+        if (this.state.fen !== fen || !bm || this.state.settings.elo != null || this.state.settings.bot) return;
         const m = moveFromUci(fen, bm);
         if (!m) return;
         const line = this.state.lines.find((l) => l.move.uci === bm);
@@ -607,7 +610,23 @@ export class Controller {
       });
     } else {
       this.player?.stop();
-      if (this.state.bestSource !== 'engine') this.set({ bestSource: 'engine' });
+    }
+
+    // Chess Bot 1: menschlich wirkende Zugwahl auf Basis von Stockfish.
+    if (settings.bot) {
+      if (!this.bot) this.bot = new ChessBot1(ENGINE_URL);
+      this.set({ bestSource: 'bot' });
+      const history = this.game?.history({ verbose: true }) ?? [];
+      void this.bot.choose(fen, history).then((choice) => {
+        if (!choice || this.state.fen !== fen || !this.state.settings.bot) return;
+        const m = moveFromUci(fen, choice.uci);
+        if (!m) return;
+        const fromLines = this.state.lines.find((l) => l.move.uci === choice.uci);
+        this.set({ best: { ...moveView(m), score: fromLines?.score }, settled: true });
+      });
+    } else {
+      this.bot?.cancel();
+      if (settings.elo == null && this.state.bestSource !== 'engine') this.set({ bestSource: 'engine' });
     }
 
     // Drohung: Was würde der Gegner spielen, wenn du aussetzen könntest?
@@ -658,7 +677,7 @@ export class Controller {
         this.evalCache.set(key, { depth: info.depth, score: info.score, best: info.pv[0]! });
         if (this.evalCache.size > 3000) this.evalCache.clear();
       }
-      if (this.state.settings.elo == null) Object.assign(patch, this.pickBest(line, lines));
+      if (this.state.settings.elo == null && !this.state.settings.bot) Object.assign(patch, this.pickBest(line, lines));
       else if (this.state.best && this.state.best.uci === line.move.uci) patch.best = { ...this.state.best, score: info.score };
       // Verlauf: Gewinnchance für Weiß in dieser Stellung
       const graph = [...this.state.graph];

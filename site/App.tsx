@@ -3,6 +3,7 @@ import { Chess, type Move, type Square } from 'chess.js';
 import type { Key } from '@lichess-org/chessground/types';
 import { Flag, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { BrandMark } from '@/panel/ui/Brand';
 import { San } from '@/panel/ui/Figurine';
@@ -46,6 +47,7 @@ declare global {
     __zbGame?: {
       fen: () => string;
       log: Choice[];
+      pilotLog: { san: string; ms: number }[];
       human: () => Side;
       choose: (fen: string, moves?: string[]) => Promise<Choice | null>;
     };
@@ -65,12 +67,18 @@ export function App() {
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // „Zugblick spielt für mich“: der Bot zieht auch deine Seite, 1–4 s nach Zugbeginn
+  const [pilot, setPilot] = useState(false);
+  const [piloting, setPiloting] = useState(false);
+  const pilotToken = useRef(0);
+  const pilotLog = useRef<{ san: string; ms: number }[]>([]);
 
   useEffect(() => {
     bot.onError = (msg) => setError(msg);
     window.__zbGame = {
       fen: () => game.current.fen(),
       log: log.current,
+      pilotLog: pilotLog.current,
       human: () => humanRef.current,
       // Für Tests: Stellung + bisherige Züge (SAN ab Grundstellung)
       choose: (f, moves = []) => {
@@ -127,10 +135,10 @@ export function App() {
   );
 
   const onMove = useCallback(
-    (from: Key, to: Key) => {
+    (from: Key, to: Key, promo?: string) => {
       const g = game.current;
       const piece = g.get(from as Square);
-      const promotion = piece?.type === 'p' && (to[1] === '8' || to[1] === '1') ? 'q' : undefined;
+      const promotion = piece?.type === 'p' && (to[1] === '8' || to[1] === '1') ? (promo ?? 'q') : undefined;
       try {
         g.move({ from, to, promotion });
       } catch {
@@ -149,6 +157,33 @@ export function App() {
   const last = moves[moves.length - 1];
   const myTurn = !over && !thinking && turn === human;
   const dests = useMemo(() => destsOf(game.current), [fen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Autopilot: Bist du am Zug, wählt der Bot deinen Zug und zieht ihn nach 1–4 Sekunden.
+  // Ziehst du vorher selbst, gilt dein Zug, und der Vorschlag verfällt.
+  useEffect(() => {
+    if (!pilot || !myTurn) return;
+    const token = ++pilotToken.current;
+    const id = gameId.current;
+    const start = game.current.fen();
+    const delay = 1000 + Math.random() * 3000;
+    const began = performance.now();
+    const stale = () => token !== pilotToken.current || id !== gameId.current || game.current.fen() !== start;
+    setPiloting(true);
+    void (async () => {
+      const choice = await bot.choose(start, game.current.history({ verbose: true }));
+      if (stale() || !choice) return;
+      await sleep(Math.max(0, delay - (performance.now() - began)));
+      if (stale()) return;
+      pilotLog.current.push({ san: choice.san, ms: Math.round(performance.now() - began) });
+      setPiloting(false);
+      const m = uciParts(choice.uci);
+      onMove(m.from as Key, m.to as Key, m.promotion);
+    })();
+    return () => {
+      pilotToken.current++;
+      setPiloting(false);
+    };
+  }, [pilot, myTurn, fen, bot, onMove]);
 
   const pairs: { n: number; w?: Move; b?: Move }[] = [];
   moves.forEach((m, i) => {
@@ -187,7 +222,7 @@ export function App() {
               onMove={onMove}
             />
           </div>
-          <PlayerStrip name="Du" side={human} active={!over && turn === human} status={null} />
+          <PlayerStrip name="Du" side={human} active={!over && turn === human} status={piloting ? 'pilot' : null} />
         </section>
 
         <aside className="flex flex-col overflow-hidden rounded-[12px] border border-line bg-surface md:sticky md:top-4 md:h-[min(640px,calc(100dvh-120px))]">
@@ -224,6 +259,13 @@ export function App() {
           {error && <p className="mx-4 mb-3 text-[12.5px] text-threat">Stockfish startet nicht: {error}</p>}
 
           <div className="shrink-0 space-y-2.5 border-t border-line p-3">
+            <label className="flex h-8 cursor-pointer items-center justify-between gap-3 px-0.5">
+              <span className="text-[13px] font-[550] text-ink">
+                Zugblick spielt für mich
+                <span className="ml-1.5 font-[450] text-ink-3">1–4 s</span>
+              </span>
+              <Switch checked={pilot} onCheckedChange={setPilot} aria-label="Zugblick spielt für mich" />
+            </label>
             <div className="flex items-center gap-2">
               <span className="w-14 text-[12px] text-ink-3">Du spielst</span>
               <div className="grid flex-1 grid-cols-3 rounded-[8px] bg-sunken p-0.5" role="radiogroup" aria-label="Farbe für die nächste Partie">
@@ -291,7 +333,17 @@ function MoveCell({ move, latest }: { move?: Move; latest: boolean }) {
   );
 }
 
-function PlayerStrip({ name, side, active, status }: { name: string; side: Side; active: boolean; status: 'thinking' | null }) {
+function PlayerStrip({
+  name,
+  side,
+  active,
+  status,
+}: {
+  name: string;
+  side: Side;
+  active: boolean;
+  status: 'thinking' | 'pilot' | null;
+}) {
   return (
     <div className="flex h-10 items-center gap-2.5 px-0.5">
       <span
@@ -302,13 +354,13 @@ function PlayerStrip({ name, side, active, status }: { name: string; side: Side;
         )}
       />
       <span className="text-[14px] font-[650] text-ink">{name}</span>
-      {status === 'thinking' ? (
-        <span className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
-          überlegt
+      {status ? (
+        <span className={cn('flex items-center gap-1.5 text-[12.5px]', status === 'pilot' ? 'text-brand' : 'text-ink-3')}>
+          {status === 'pilot' ? 'Zugblick zieht für dich' : 'überlegt'}
           <span className="zb-dots flex gap-[3px]">
-            <span className="size-1 rounded-full bg-ink-3" />
-            <span className="size-1 rounded-full bg-ink-3" />
-            <span className="size-1 rounded-full bg-ink-3" />
+            <span className="size-1 rounded-full bg-current" />
+            <span className="size-1 rounded-full bg-current" />
+            <span className="size-1 rounded-full bg-current" />
           </span>
         </span>
       ) : (

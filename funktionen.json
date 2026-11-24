@@ -160,5 +160,14 @@
       "live geprüft 24.11.: hell/dunkel/Handy je 3 Züge, als Schwarz 10 Züge, keine Fehler"
     ],
     "geprueft": true
+  },
+  {
+    "ablauf": "Website: Schalter „Zugblick spielt für mich“ – Bot zieht auch deine Seite 1–4 s nach Zugbeginn, eigener Zug hat Vorrang, ausschaltbar",
+    "schritte": [
+      "Schalter einschalten",
+      "beide Seiten ziehen selbst, deine Züge nach 1–4 s, Leiste „Zugblick zieht für dich“",
+      "Schalter aus: Stellung bleibt stehen, bis du ziehst"
+    ],
+    "geprueft": false
   }
 ]

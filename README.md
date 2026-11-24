@@ -26,6 +26,8 @@
 
 Zugblick als Gegner spielt wie ein Mensch, nicht wie Stockfish: Für jeden Zug rechnet Stockfish die guten Kandidaten aus, und der Bot nimmt davon den, den ein Mensch sehen würde – Schlagen, Zurückschlagen, Schach, Figuren entwickeln, bedrohte Figuren retten. Züge, die erst bei großer Rechentiefe aufgehen und auf den ersten Blick schlecht aussehen („Engine-Züge“), lässt er liegen. In der Eröffnung spielt er übliche Hauptzüge, im Mittelspiel ab und zu eine kleine Ungenauigkeit, nie einen groben Patzer. Bedenkzeit wie ein Mensch: Klares geht schnell, schwierige Stellungen dauern länger.
 
+**Zugblick spielt für mich:** Mit dem Schalter zieht der Bot auch deine Seite, jeweils 1–4 Sekunden nach Zugbeginn – zum Zuschauen oder Vorführen. Ziehst du vorher selbst, gilt dein Zug. Das gibt es nur hier auf der eigenen Website, nicht in der Erweiterung auf fremden Schachseiten.
+
 ## Installieren
 
 Läuft in allen Chromium-Browsern: Chrome, Edge, Brave, Arc, Opera – auf Windows und macOS. Firefox und Safari werden noch nicht unterstützt.

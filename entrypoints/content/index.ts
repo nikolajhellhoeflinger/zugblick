@@ -38,7 +38,12 @@ export default defineContentScript({
       const row = orientation === 'w' ? 7 - rank : rank;
       const x = r.left + ((col + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.width;
       const y = r.top + ((row + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.height;
-      const target = document.elementFromPoint(x, y);
+      // Das oberste Element unter dem Punkt, das zum Brett gehört – nicht unser Panel, falls es darüber liegt.
+      const hits = document.elementsFromPoint(x, y);
+      const board = current?.el;
+      const target =
+        (board && hits.find((el) => board === el || board.contains(el))) ??
+        hits.find((el) => el.tagName !== 'ZUGBLICK-PANEL');
       if (!target) return false;
       const base = { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse' };
       synthetic = true;
@@ -58,7 +63,7 @@ export default defineContentScript({
     const NEW_GAME = /^(neues spiel|neue partie|new game|rematch|revanche)$/i;
     const clickNewGame = () => {
       const btn = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].find(
-        (el) => el.offsetParent !== null && NEW_GAME.test((el.textContent ?? '').replace(/\s+/g, ' ').trim()),
+        (el) => el.getClientRects().length > 0 && NEW_GAME.test((el.textContent ?? '').replace(/\s+/g, ' ').trim()),
       );
       btn?.click();
     };
@@ -70,8 +75,12 @@ export default defineContentScript({
       return current.adapter.read(current.el)?.placement ?? null;
     };
     const playMove = async (m: { from: string; to: string; promotion: boolean; before: string; after: string }) => {
-      if (moving) return;
+      if (moving) {
+        host?.send({ type: 'move-result', ok: false, stale: true });
+        return;
+      }
       moving = true;
+      host?.passThrough(true);
       try {
         const outcome = await executeMove(
           {
@@ -86,6 +95,7 @@ export default defineContentScript({
         host?.send({ type: 'move-result', ok: false, stale: false });
       } finally {
         moving = false;
+        host?.passThrough(false);
       }
     };
 

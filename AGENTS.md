@@ -39,6 +39,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 | `entrypoints/content/index.ts` | Inhalts-Skript: Brett finden, Änderungen beobachten, Klicks auf Figuren melden |
 | `content/readers.ts` | Brett-Leser aus dem HTML: chess.com, chessground (lichess u. a.), chessboard.js, FEN-Felder |
 | `content/vision.ts`, `content/recognize.ts` | Bilderkennung: Tab-Foto → Brett ausrichten → Figuren erkennen/lernen |
+| `content/mover.ts` | Automatisch spielen: klickt Start-/Zielfeld nur bei passender Stellung, prüft nach jedem Klick, nimmt Fehlklicks zurück (reine Logik, mit Fake-Brett testbar) |
 | `content/overlay.ts` | Pfeile, Sucherrahmen, Bewertungsstempel über dem Brett (geschlossenes Shadow-DOM) |
 | `content/panel-host.ts` | bettet das Panel als iframe ein, privater Kanal mit Einmal-Schlüssel |
 | `entrypoints/panel/` + `panel/` | Panel (React): `controller.ts` verfolgt die Stellung und steuert Stockfish, `engine.ts` ist die UCI-Hülle, `ui/` die Oberfläche |
@@ -56,6 +57,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Stile an Elementen in fremden Seiten immer mit `!important` setzen – Seiten-CSS (z. B. `iframe { max-width }`) verformt sonst das Panel.
 - Keine Bildschirmfotos fremder Seiten ins Repo (`tools/bench/samples/` ist ignoriert).
 - Neue Abhängigkeiten mit fester Version.
+- Automatisch spielen: chess.com prüft selbst, was unter dem Mauszeiger liegt – alles über dem Brett blockiert den Zug. Unser Panel wird deshalb während eines Zugs klick-durchlässig (`PanelHost.passThrough`); fremde Flächen (Cookie-Banner) werden nie durchgeklickt.
 - Chess Bot 1 (`site/bot.ts`) läuft auf der Website und ist seit 24.11.2026 zusätzlich eigene Stärke-Stufe im Panel (`panel/ui/BotIcon.tsx`, `settings.bot`).
 
 **Prüfen:** Änderungen am Panel im echten Browser ansehen (hell, dunkel), Änderungen an der Bilderkennung mit `pnpm bench` messen (Ausgangswert: 99,8 % der Felder über drei Brettgrößen).

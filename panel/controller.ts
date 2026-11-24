@@ -209,6 +209,11 @@ export class Controller {
   /** Zeitpunkt, seit dem ein Zug beim Klick-Skript liegt (0 = keiner). */
   private inFlight = 0;
   private failures = 0;
+  /** Wie oft hintereinander nach Fehlschlägen „Neues Spiel“ versucht wurde. */
+  private rescues = 0;
+  /** Letzte Änderung der Stellung (für: Partie still vorbei, z. B. Remis durch Wiederholung). */
+  private lastChange = Date.now();
+  private lastIdleProbe = 0;
   private staleCount = 0;
   private newGameListener: (() => void) | null = null;
   private sessionEnd = 0;
@@ -289,6 +294,8 @@ export class Controller {
     this.inFlight = 0;
     this.failures = 0;
     this.staleCount = 0;
+    this.rescues = 0;
+    this.lastChange = Date.now();
     this.clearPlayTimer();
     const mins = this.state.settings.sessionMinutes;
     this.sessionEnd = on && mins > 0 ? Date.now() + mins * 60_000 : 0;
@@ -313,11 +320,19 @@ export class Controller {
     if (ok) {
       this.failures = 0;
       this.staleCount = 0;
+      this.rescues = 0;
       return;
     }
     if (stale) {
       if (++this.staleCount >= 10) return this.setAutoplay(false);
     } else if (++this.failures >= 3) {
+      // Zug geht nicht durch – oft ist die Partie still vorbei (Remis, Aufgabe). Dann neue Partie versuchen.
+      if (this.state.settings.autoNewGame && this.rescues < 2) {
+        this.rescues++;
+        this.failures = 0;
+        this.newGameListener?.();
+        return;
+      }
       return this.setAutoplay(false);
     }
     // Gleiche Stellung noch einmal versuchen (mit neuer, kurzer Pause).
@@ -334,6 +349,18 @@ export class Controller {
     if (this.inFlight && Date.now() - this.inFlight > 15000) this.moveResult(false);
     // Falls ein Timer verloren ging: neu anstoßen.
     if (!this.inFlight && !this.playTimer) this.autoplayTick();
+    // 30 s keine Änderung, obwohl der Gegner dran ist: Partie vermutlich vorbei → Knopf für neue Partie suchen
+    // (das Inhalts-Skript klickt nur, wenn ein passender Knopf sichtbar ist).
+    if (
+      s.settings.autoNewGame &&
+      s.phase === 'live' &&
+      s.turn !== s.orientation &&
+      Date.now() - this.lastChange > 30_000 &&
+      Date.now() - this.lastIdleProbe > 15_000
+    ) {
+      this.lastIdleProbe = Date.now();
+      this.newGameListener?.();
+    }
   }
 
   /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken, notfalls wiederholt. */
@@ -433,6 +460,7 @@ export class Controller {
   }
 
   private set(patch: Partial<State>) {
+    if (patch.fen !== undefined && patch.fen !== this.state.fen) this.lastChange = Date.now();
     this.state = { ...this.state, ...patch };
     this.newGameTick();
     this.autoplayTick();

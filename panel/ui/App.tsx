@@ -128,7 +128,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
         ) : (
           <>
             <Hero state={s} controller={controller} send={send} />
-            {live && !s.analysisBoard && (
+            {((live && !s.analysisBoard) || s.autoplay) && (
               <div className="border-t border-line px-4 py-2.5">
                 <button
                   type="button"

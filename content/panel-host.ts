@@ -118,6 +118,11 @@ export class PanelHost {
     this.onMessage(msg);
   }
 
+  /** Während Zugblick selbst auf das Brett klickt: Panel für Klicks durchlässig (falls es über dem Brett liegt). */
+  passThrough(on: boolean) {
+    setStyles(this.frame, { 'pointer-events': on ? 'none' : 'auto' });
+  }
+
   rect(): DOMRect {
     return this.frame.getBoundingClientRect();
   }

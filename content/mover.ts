@@ -24,19 +24,31 @@ export type MoveOutcome = 'ok' | 'stale' | 'failed';
 
 const jitter = (a: number, b: number) => a + Math.random() * (b - a);
 
-async function waitFor(io: MoverIO, want: string, timeoutMs: number): Promise<boolean> {
+async function waitExact(io: MoverIO, want: string, timeoutMs: number): Promise<boolean> {
   const until = Date.now() + timeoutMs;
-  while (Date.now() < until) {
+  for (;;) {
     if (io.placement() === want) return true;
+    if (Date.now() >= until) return false;
     await io.sleep(100);
   }
-  return io.placement() === want;
+}
+
+/** Wartet, bis die Seite den Zug zeigt. Erfolg: genau `after` – oder überhaupt eine andere Stellung als
+ *  `before` (der Gegner kann blitzschnell antworten, dann sieht man `after` nie). */
+async function waitMoved(io: MoverIO, job: MoveJob, timeoutMs: number): Promise<boolean> {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const p = io.placement();
+    if (p === job.after || (p !== null && p !== job.before)) return true;
+    if (Date.now() >= until) return false;
+    await io.sleep(100);
+  }
 }
 
 /**
  * Ablauf:
  * 1. Seite muss zwei Mal hintereinander exakt `before` zeigen (sonst: stale, nichts klicken).
- * 2. Startfeld klicken, dann Zielfeld. Ergebnis muss `after` sein (sonst: failed).
+ * 2. Startfeld klicken, dann Zielfeld. Danach muss die Seite eine andere Stellung zeigen (sonst: failed).
  * 3. Schlägt der Zug fehl, wird das Startfeld noch einmal geklickt, damit die Auswahl wieder weg ist.
  *    Die Seite bleibt so, wie sie vorher war – nichts wird ungewollt gezogen.
  */
@@ -57,14 +69,16 @@ export async function executeMove(io: MoverIO, job: MoveJob): Promise<MoveOutcom
 
   // 3. Zielfeld
   if (!io.click(job.to)) return cancel(io, job);
-  if (await waitFor(io, job.after, 1800)) return 'ok';
-
-  // Umwandlung: Auswahl mit der Dame ist ein zweiter Klick auf das Zielfeld
   if (job.promotion) {
-    await io.sleep(jitter(300, 500));
+    // Umwandlung: Steht die Dame schon (Auto-Dame), fertig. Sonst steht der Bauer auf der letzten
+    // Reihe und die Auswahl ist offen – die Dame liegt dort auf dem Zielfeld.
+    if (await waitExact(io, job.after, 900)) return 'ok';
+    await io.sleep(jitter(250, 450));
     io.click(job.to);
-    if (await waitFor(io, job.after, 1500)) return 'ok';
+    if (await waitExact(io, job.after, 1500)) return 'ok';
+    return 'failed'; // Auswahl nicht wegklicken: Der Bauer steht schon vorne, Zurücknehmen geht nicht mehr
   }
+  if (await waitMoved(io, job, 2000)) return 'ok';
   return cancel(io, job);
 }
 

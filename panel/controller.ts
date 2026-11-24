@@ -206,7 +206,10 @@ export class Controller {
   private playTimerFen = '';
   private playedKey = '';
   private playListener: ((m: { from: string; to: string; promotion: boolean; before: string; after: string }) => void) | null = null;
-  private playRequestedAt = 0;
+  /** Zeitpunkt, seit dem ein Zug beim Klick-Skript liegt (0 = keiner). */
+  private inFlight = 0;
+  private failures = 0;
+  private staleCount = 0;
   private newGameListener: (() => void) | null = null;
   private sessionEnd = 0;
   private newGameFor = '';
@@ -283,9 +286,10 @@ export class Controller {
 
   setAutoplay(on: boolean) {
     this.playedKey = '';
-    this.playRequestedAt = 0;
-    window.clearTimeout(this.playTimer);
-    this.playTimerFen = '';
+    this.inFlight = 0;
+    this.failures = 0;
+    this.staleCount = 0;
+    this.clearPlayTimer();
     const mins = this.state.settings.sessionMinutes;
     this.sessionEnd = on && mins > 0 ? Date.now() + mins * 60_000 : 0;
     this.newGameFor = '';
@@ -293,27 +297,46 @@ export class Controller {
     this.set({ autoplay: on });
   }
 
-  private stopAutoplay() {
-    this.playRequestedAt = 0;
-    this.setAutoplay(false);
+  private clearPlayTimer() {
+    window.clearTimeout(this.playTimer);
+    this.playTimer = 0;
+    this.playTimerFen = '';
   }
 
-  /** Ergebnis vom Klick-Skript: Fehler oder veraltete Stellung → Autospielen aus, nichts wird nachgeklickt. */
-  moveResult(ok: boolean) {
-    this.playRequestedAt = 0;
-    if (!ok) this.stopAutoplay();
+  /**
+   * Rückmeldung vom Klick-Skript.
+   * ok → weiter. stale (Seite zeigte gerade eine andere Stellung) → einfach neu versuchen, sobald sie passt.
+   * failed → bis zu drei Mal neu versuchen, erst dann aus. Nie wird auf Verdacht nachgeklickt.
+   */
+  moveResult(ok: boolean, stale = false) {
+    this.inFlight = 0;
+    if (ok) {
+      this.failures = 0;
+      this.staleCount = 0;
+      return;
+    }
+    if (stale) {
+      if (++this.staleCount >= 10) return this.setAutoplay(false);
+    } else if (++this.failures >= 3) {
+      return this.setAutoplay(false);
+    }
+    // Gleiche Stellung noch einmal versuchen (mit neuer, kurzer Pause).
+    this.playedKey = '';
+    this.autoplayTick(true);
   }
 
-  /** Im Sekundentakt: Spielzeit abgelaufen? Zug hängt (keine Rückmeldung)? Dann aus. */
+  /** Im Sekundentakt: Spielzeit abgelaufen? Klick ohne Rückmeldung? */
   private checkSession() {
     const s = this.state;
     if (!s.autoplay) return;
-    if (this.sessionEnd && Date.now() >= this.sessionEnd) return this.stopAutoplay();
-    if (this.playRequestedAt && Date.now() - this.playRequestedAt > 12000) return this.stopAutoplay();
-    if (this.paused) return this.stopAutoplay();
+    if (this.sessionEnd && Date.now() >= this.sessionEnd) return this.setAutoplay(false);
+    // Keine Rückmeldung (z. B. Seite neu geladen): als Fehlschlag zählen, nicht hängen bleiben.
+    if (this.inFlight && Date.now() - this.inFlight > 15000) this.moveResult(false);
+    // Falls ein Timer verloren ging: neu anstoßen.
+    if (!this.inFlight && !this.playTimer) this.autoplayTick();
   }
 
-  /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken. */
+  /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken, notfalls wiederholt. */
   private newGameTick() {
     const s = this.state;
     const over = s.autoplay && s.settings.autoNewGame && s.phase === 'gameover' && !!s.fen;
@@ -327,10 +350,15 @@ export class Controller {
     if (this.newGameFor === key) return;
     this.newGameFor = key;
     window.clearTimeout(this.newGameTimer);
-    this.newGameTimer = window.setTimeout(() => {
-      this.newGameTimer = 0;
-      if (this.state.autoplay && this.state.settings.autoNewGame) this.newGameListener?.();
-    }, 1500 + Math.random() * 1500);
+    const attempt = (n: number) => {
+      this.newGameTimer = window.setTimeout(() => {
+        const now = this.state;
+        if (!now.autoplay || !now.settings.autoNewGame || now.phase !== 'gameover') return;
+        this.newGameListener?.();
+        if (n < 4) attempt(n + 1); // Knopf erscheint oft erst nach der Endanimation
+      }, n === 0 ? 1500 + Math.random() * 1500 : 2500);
+    };
+    attempt(0);
   }
 
   /** Bedenkzeit nach den Einstellungen von/bis, gleichmäßig oder unregelmäßig (meist kurz, manchmal lang). */
@@ -347,41 +375,61 @@ export class Controller {
     return (lo + (hi - lo) * u) * 1000;
   }
 
-  private autoplayTick() {
+  /** Bin ich gerade am Zug, und darf automatisch gespielt werden? */
+  private myTurn(): boolean {
     const s = this.state;
-    const ready =
-      s.autoplay && s.phase === 'live' && !s.analysisBoard && !s.gameOver && s.fen && s.best && s.settled && s.turn === s.orientation;
-    if (!ready) {
-      if (this.playTimer && (!s.autoplay || s.fen !== this.playTimerFen)) {
-        window.clearTimeout(this.playTimer);
-        this.playTimer = 0;
-        this.playTimerFen = '';
-      }
+    return (
+      s.autoplay && !this.paused && s.phase === 'live' && !s.analysisBoard && !s.gameOver && !!s.fen && s.turn === s.orientation
+    );
+  }
+
+  /**
+   * Plant den Zug: Bedenkzeit läuft ab dem Moment, in dem ich am Zug bin.
+   * Ist der Zug dann noch nicht „sicher“, wird kurz nachgewartet (höchstens 8 s, dann gilt der gezeigte).
+   */
+  private autoplayTick(retry = false) {
+    if (!this.myTurn()) {
+      if (this.playTimer) this.clearPlayTimer();
       return;
     }
-    const key = fenKey(s.fen!);
-    if (key === this.playedKey) return;
+    const key = fenKey(this.state.fen!);
+    if (key === this.playedKey || this.inFlight) return;
     if (this.playTimer && this.playTimerFen === key) return;
-    window.clearTimeout(this.playTimer);
+    this.clearPlayTimer();
     this.playTimerFen = key;
-    this.playTimer = window.setTimeout(() => {
-      this.playTimer = 0;
-      const now = this.state;
-      if (!now.autoplay || !now.fen || !now.best || fenKey(now.fen) !== key || now.turn !== now.orientation) return;
-      this.playedKey = key;
-      const before = now.fen!.split(' ')[0]!;
-      const g = load(now.fen!);
-      const m = g && playUci(g, now.best.uci);
-      if (!m || !g) return this.stopAutoplay();
-      this.playRequestedAt = Date.now();
-      this.playListener?.({
-        from: now.best.from,
-        to: now.best.to,
-        promotion: now.best.uci.length > 4,
-        before,
-        after: g.fen().split(' ')[0]!,
-      });
-    }, this.thinkDelay());
+    const delay = retry ? 400 + Math.random() * 600 : this.thinkDelay();
+    const due = Date.now() + delay;
+    this.playTimer = window.setTimeout(() => this.firePlay(key, due), delay);
+  }
+
+  private firePlay(key: string, due: number) {
+    this.playTimer = 0;
+    const now = this.state;
+    if (!this.myTurn() || fenKey(now.fen!) !== key) {
+      this.playTimerFen = '';
+      return;
+    }
+    if (!now.best || (!now.settled && Date.now() - due < 8000)) {
+      this.playTimer = window.setTimeout(() => this.firePlay(key, due), 250);
+      return;
+    }
+    const before = now.fen!.split(' ')[0]!;
+    const g = load(now.fen!);
+    const m = g && playUci(g, now.best.uci);
+    if (!m || !g) {
+      this.playTimer = window.setTimeout(() => this.firePlay(key, due), 500);
+      return;
+    }
+    this.playTimerFen = '';
+    this.playedKey = key;
+    this.inFlight = Date.now();
+    this.playListener?.({
+      from: now.best.from,
+      to: now.best.to,
+      promotion: now.best.uci.length > 4,
+      before,
+      after: g.fen().split(' ')[0]!,
+    });
   }
 
   private set(patch: Partial<State>) {

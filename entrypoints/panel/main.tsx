@@ -35,7 +35,7 @@ window.addEventListener('message', (e: MessageEvent) => {
     else if (msg.type === 'select') controller.select(msg.square);
     else if (msg.type === 'host') controller.setHost(msg.host, msg.path);
     else if (msg.type === 'vision') controller.setVision(msg.state);
-    else if (msg.type === 'move-result') controller.moveResult(msg.ok);
+    else if (msg.type === 'move-result') controller.moveResult(msg.ok, msg.stale);
   };
   port.postMessage({ type: 'ready' } satisfies ToContent);
   for (const m of outbox.splice(0)) port.postMessage(m);

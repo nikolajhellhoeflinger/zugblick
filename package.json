@@ -1,6 +1,6 @@
 {
   "name": "zugblick",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "description": "Stockfish in Echtzeit auf jeder Schachseite – Browser-Erweiterung für Chrome, Edge und Brave.",
   "license": "GPL-3.0-or-later",

@@ -1,6 +1,7 @@
 import { findFenTurn, pickAdapter, type BoardAdapter } from '@/content/readers';
 import { Overlay } from '@/content/overlay';
 import { PanelHost } from '@/content/panel-host';
+import { executeMove } from '@/content/mover';
 import { Vision } from '@/content/vision';
 import { squareIndex, squareName, type Color } from '@/lib/board';
 import type { BoardRead, ToContent } from '@/lib/protocol';
@@ -29,7 +30,7 @@ export default defineContentScript({
     /** Ein Mausklick auf ein Feld, so wie ihn die Seite von einer Hand bekäme. */
     const clickSquare = (square: string) => {
       const r = rect();
-      if (!r) return;
+      if (!r) return false;
       const i = squareIndex(square);
       const file = i % 8;
       const rank = Math.floor(i / 8);
@@ -38,7 +39,7 @@ export default defineContentScript({
       const x = r.left + ((col + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.width;
       const y = r.top + ((row + 0.5 + (Math.random() - 0.5) * 0.4) / 8) * r.height;
       const target = document.elementFromPoint(x, y);
-      if (!target) return;
+      if (!target) return false;
       const base = { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse' };
       synthetic = true;
       try {
@@ -50,6 +51,7 @@ export default defineContentScript({
       } finally {
         synthetic = false;
       }
+      return true;
     };
 
     /** „Neues Spiel“-Knopf der Seite finden und drücken (Text je nach Seite, deutsch oder englisch). */
@@ -61,13 +63,30 @@ export default defineContentScript({
       btn?.click();
     };
 
-    const playMove = (from: string, to: string, promotion: boolean) => {
-      clickSquare(from);
-      window.setTimeout(() => {
-        clickSquare(to);
-        // Umwandlung: Die Dame steht in der Auswahl auf dem Zielfeld.
-        if (promotion) window.setTimeout(() => clickSquare(to), 380);
-      }, 220 + Math.random() * 260);
+    // Ein Zug nach dem anderen; während einer läuft, kommt kein zweiter dazu.
+    let moving = false;
+    const boardPlacement = (): string | null => {
+      if (!current || !current.el.isConnected || vision?.active) return null;
+      return current.adapter.read(current.el)?.placement ?? null;
+    };
+    const playMove = async (m: { from: string; to: string; promotion: boolean; before: string; after: string }) => {
+      if (moving) return;
+      moving = true;
+      try {
+        const outcome = await executeMove(
+          {
+            click: (sq) => clickSquare(sq),
+            placement: boardPlacement,
+            sleep: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+          },
+          m,
+        );
+        host?.send({ type: 'move-result', ok: outcome === 'ok', stale: outcome === 'stale' });
+      } catch {
+        host?.send({ type: 'move-result', ok: false, stale: false });
+      } finally {
+        moving = false;
+      }
     };
 
     const rect = (): DOMRect | null => {
@@ -146,7 +165,7 @@ export default defineContentScript({
       } else if (msg.type === 'newgame') {
         clickNewGame();
       } else if (msg.type === 'play') {
-        playMove(msg.from, msg.to, msg.promotion);
+        void playMove(msg);
       } else if (msg.type === 'close') {
         dismissed = true;
         deactivate();

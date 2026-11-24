@@ -205,7 +205,8 @@ export class Controller {
   private playTimer = 0;
   private playTimerFen = '';
   private playedKey = '';
-  private playListener: ((m: { from: string; to: string; promotion: boolean }) => void) | null = null;
+  private playListener: ((m: { from: string; to: string; promotion: boolean; before: string; after: string }) => void) | null = null;
+  private playRequestedAt = 0;
   private newGameListener: (() => void) | null = null;
   private sessionEnd = 0;
   private newGameFor = '';
@@ -272,7 +273,7 @@ export class Controller {
     this.overlayListener = fn;
   }
 
-  onPlay(fn: (m: { from: string; to: string; promotion: boolean }) => void) {
+  onPlay(fn: (m: { from: string; to: string; promotion: boolean; before: string; after: string }) => void) {
     this.playListener = fn;
   }
 
@@ -282,6 +283,7 @@ export class Controller {
 
   setAutoplay(on: boolean) {
     this.playedKey = '';
+    this.playRequestedAt = 0;
     window.clearTimeout(this.playTimer);
     this.playTimerFen = '';
     const mins = this.state.settings.sessionMinutes;
@@ -291,9 +293,24 @@ export class Controller {
     this.set({ autoplay: on });
   }
 
-  /** Spielzeit abgelaufen → Autospielen aus. Läuft im Sekundentakt, weil dann keine Zustandsänderung kommt. */
+  private stopAutoplay() {
+    this.playRequestedAt = 0;
+    this.setAutoplay(false);
+  }
+
+  /** Ergebnis vom Klick-Skript: Fehler oder veraltete Stellung → Autospielen aus, nichts wird nachgeklickt. */
+  moveResult(ok: boolean) {
+    this.playRequestedAt = 0;
+    if (!ok) this.stopAutoplay();
+  }
+
+  /** Im Sekundentakt: Spielzeit abgelaufen? Zug hängt (keine Rückmeldung)? Dann aus. */
   private checkSession() {
-    if (this.state.autoplay && this.sessionEnd && Date.now() >= this.sessionEnd) this.setAutoplay(false);
+    const s = this.state;
+    if (!s.autoplay) return;
+    if (this.sessionEnd && Date.now() >= this.sessionEnd) return this.stopAutoplay();
+    if (this.playRequestedAt && Date.now() - this.playRequestedAt > 12000) return this.stopAutoplay();
+    if (this.paused) return this.stopAutoplay();
   }
 
   /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken. */
@@ -352,7 +369,18 @@ export class Controller {
       const now = this.state;
       if (!now.autoplay || !now.fen || !now.best || fenKey(now.fen) !== key || now.turn !== now.orientation) return;
       this.playedKey = key;
-      this.playListener?.({ from: now.best.from, to: now.best.to, promotion: now.best.uci.length > 4 });
+      const before = now.fen!.split(' ')[0]!;
+      const g = load(now.fen!);
+      const m = g && playUci(g, now.best.uci);
+      if (!m || !g) return this.stopAutoplay();
+      this.playRequestedAt = Date.now();
+      this.playListener?.({
+        from: now.best.from,
+        to: now.best.to,
+        promotion: now.best.uci.length > 4,
+        before,
+        after: g.fen().split(' ')[0]!,
+      });
     }, this.thinkDelay());
   }
 

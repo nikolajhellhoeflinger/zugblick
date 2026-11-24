@@ -44,7 +44,8 @@ export type ToPanel =
   | { type: 'no-board' }
   | { type: 'select'; square: string | null }
   | { type: 'host'; host: string; path: string }
-  | { type: 'vision'; state: VisionState };
+  | { type: 'vision'; state: VisionState }
+  | { type: 'move-result'; ok: boolean; stale: boolean };
 
 export type VisionState =
   | { phase: 'off' }
@@ -59,6 +60,6 @@ export type ToContent =
   | { type: 'size'; width: number; height: number }
   | { type: 'drag'; phase: 'start' | 'move' | 'end'; screenX: number; screenY: number }
   | { type: 'close' }
-  | { type: 'play'; from: string; to: string; promotion: boolean }
+  | { type: 'play'; from: string; to: string; promotion: boolean; before: string; after: string }
   | { type: 'newgame' }
   | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

@@ -20,6 +20,12 @@
 - **Hell und dunkel, Großansicht** für Beamer, Tastenkürzel **Alt+Shift+Z** zum Ein- und Ausblenden.
 - **Läuft komplett lokal** – keine Konten, kein Server, keine Daten verlassen deinen Rechner.
 
+## Gegen Zugblick spielen
+
+**[nikolajhellhoeflinger.github.io/zugblick](https://nikolajhellhoeflinger.github.io/zugblick/)** – eine Website, nichts zu installieren, läuft auf Laptop und Handy.
+
+Zugblick als Gegner spielt wie ein Mensch, nicht wie Stockfish: Für jeden Zug rechnet Stockfish die guten Kandidaten aus, und der Bot nimmt davon den, den ein Mensch sehen würde – Schlagen, Zurückschlagen, Schach, Figuren entwickeln, bedrohte Figuren retten. Züge, die erst bei großer Rechentiefe aufgehen und auf den ersten Blick schlecht aussehen („Engine-Züge“), lässt er liegen. In der Eröffnung spielt er übliche Hauptzüge, im Mittelspiel ab und zu eine kleine Ungenauigkeit, nie einen groben Patzer. Bedenkzeit wie ein Mensch: Klares geht schnell, schwierige Stellungen dauern länger.
+
 ## Installieren
 
 Läuft in allen Chromium-Browsern: Chrome, Edge, Brave, Arc, Opera – auf Windows und macOS. Firefox und Safari werden noch nicht unterstützt.
@@ -85,6 +91,8 @@ pnpm dev        # Chrome mit Zugblick und Live-Neuladen
 pnpm build      # → .output/chrome-mv3
 pnpm zip        # → .output/zugblick-<version>-chrome.zip
 pnpm bench      # Messbank der Bilderkennung (vorher: pnpm bench:collect lichess|chesscom)
+pnpm site:dev   # Website „Gegen Zugblick spielen“ lokal
+pnpm site:build # → site/dist (GitHub Pages baut das bei jedem Push selbst)
 ```
 
 Aufbau und Fallen stehen in [`AGENTS.md`](AGENTS.md).
@@ -95,6 +103,7 @@ Zugblick baut auf freier Software auf:
 
 - [Stockfish](https://stockfishchess.org) über [stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0)
 - [chess.js](https://github.com/jhlywa/chess.js) (BSD-2-Clause)
+- [chessground](https://github.com/lichess-org/chessground) – das Brett der Website (GPL-3.0)
 - [WXT](https://wxt.dev) (MIT), [React](https://react.dev) (MIT), [Tailwind CSS](https://tailwindcss.com) (MIT), [Radix UI](https://www.radix-ui.com) und [shadcn/ui](https://ui.shadcn.com) (MIT), [Lucide](https://lucide.dev) (ISC)
 - Figuren „cburnett“ von Colin M. L. Burnett (GPLv2+), über [lichess](https://github.com/lichess-org/lila)
 - Vorlagen der Bilderkennung aus den Figurensätzen cburnett, merida (GPLv2+), chessnut (Apache-2.0), fantasy, celtic (MIT) und mpchess (GPLv3+)

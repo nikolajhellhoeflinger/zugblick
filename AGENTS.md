@@ -30,7 +30,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 
 ## B) Am Code arbeiten
 
-**Befehle:** `pnpm install` · `pnpm dev` (Chrome mit Live-Neuladen) · `pnpm build` (→ `.output/chrome-mv3`) · `pnpm zip` · `pnpm compile` (Typen) · `pnpm bench` (Messbank Bilderkennung).
+**Befehle:** `pnpm install` · `pnpm dev` (Chrome mit Live-Neuladen) · `pnpm build` (→ `.output/chrome-mv3`) · `pnpm zip` · `pnpm compile` (Typen) · `pnpm bench` (Messbank Bilderkennung) · `pnpm site:dev` / `pnpm site:build` (Website).
 
 **Wo was liegt**
 
@@ -45,6 +45,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 | `lib/protocol.ts` | alle Nachrichten zwischen Inhalts-Skript und Panel |
 | `public/stockfish/` | Stockfish 19 lite single-threaded (stockfish.js 19.0.1) |
 | `content/vision-builtin.json` | Umriss-Vorlagen, erzeugt mit `pnpm templates` aus `tools/piecesets/` |
+| `site/` | Website „Gegen Zugblick spielen“ (eigener Vite-Bau, GitHub Pages über `.github/workflows/site.yml`): `bot.ts` wählt menschliche Züge, `Board.tsx` = chessground |
 
 **Verbote und echte Fallen**
 
@@ -55,5 +56,6 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Stile an Elementen in fremden Seiten immer mit `!important` setzen – Seiten-CSS (z. B. `iframe { max-width }`) verformt sonst das Panel.
 - Keine Bildschirmfotos fremder Seiten ins Repo (`tools/bench/samples/` ist ignoriert).
 - Neue Abhängigkeiten mit fester Version.
+- Der menschliche Spielstil gehört nur in den eigenen Gegner auf der Website (`site/bot.ts`), nie als Zugvorschlag ins Panel: Dort würde er Engine-Hilfe gegen Menschen tarnen.
 
 **Prüfen:** Änderungen am Panel im echten Browser ansehen (hell, dunkel), Änderungen an der Bilderkennung mit `pnpm bench` messen (Ausgangswert: 99,8 % der Felder über drei Brettgrößen).

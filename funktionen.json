@@ -148,5 +148,16 @@
       "Partie gegen den lichess-Computer: „Sicher“ 30–110 ms nach dem Zug des Gegners"
     ],
     "geprueft": true
+  },
+  {
+    "ablauf": "Website: gegen Zugblick spielen (Weiß, Schwarz oder Zufall), Bot zieht selbst menschlich, Zugliste, Aufgeben, Neue Partie",
+    "schritte": [
+      "nikolajhellhoeflinger.github.io/zugblick öffnen",
+      "e2–e4 ziehen (Klick oder Ziehen)",
+      "Bot antwortet nach 0,4–1,1 s (Eröffnung)",
+      "weitere Züge, Rochade, Zugliste füllt sich",
+      "hell, dunkel, Handy 390 px"
+    ],
+    "geprueft": false
   }
 ]

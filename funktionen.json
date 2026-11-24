@@ -150,7 +150,7 @@
     "geprueft": true
   },
   {
-    "ablauf": "Website: gegen Zugblick spielen (Weiß, Schwarz oder Zufall), Bot zieht selbst menschlich, Zugliste, Aufgeben, Neue Partie",
+    "ablauf": "Website: gegen Chess Bot 1 spielen (Weiß, Schwarz oder Zufall), Zugliste, Aufgeben, Neue Partie",
     "schritte": [
       "nikolajhellhoeflinger.github.io/zugblick öffnen",
       "e2–e4 ziehen (Klick oder Ziehen)",
@@ -162,10 +162,10 @@
     "geprueft": true
   },
   {
-    "ablauf": "Website: Schalter „Zugblick spielt für mich“ – Bot zieht auch deine Seite 1–4 s nach Zugbeginn, eigener Zug hat Vorrang, ausschaltbar",
+    "ablauf": "Website: Schalter „Chess Bot 1 spielt für mich“ – zieht auch deine Seite 1–4 s nach Zugbeginn, eigener Zug hat Vorrang, ausschaltbar",
     "schritte": [
       "Schalter einschalten",
-      "beide Seiten ziehen selbst, deine Züge nach 1–4 s, Leiste „Zugblick zieht für dich“",
+      "beide Seiten ziehen selbst, deine Züge nach 1–4 s, Leiste „Chess Bot 1 zieht für dich“",
       "Schalter aus: Stellung bleibt stehen, bis du ziehst",
       "live geprüft 24.11.: 6 eigene Züge nach 1,3–3,9 s, aus = 8 s Stillstand"
     ],

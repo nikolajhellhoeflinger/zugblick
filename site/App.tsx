@@ -22,7 +22,7 @@ function sleep(ms: number) {
 
 function result(g: Chess, human: Side, resigned: boolean): string | null {
   if (resigned) return 'Du hast aufgegeben';
-  if (g.isCheckmate()) return g.turn() === human ? 'Schachmatt – Zugblick gewinnt' : 'Schachmatt – du gewinnst';
+  if (g.isCheckmate()) return g.turn() === human ? 'Schachmatt – Chess Bot 1 gewinnt' : 'Schachmatt – du gewinnst';
   if (g.isStalemate()) return 'Patt – remis';
   if (g.isThreefoldRepetition()) return 'Remis durch Wiederholung';
   if (g.isInsufficientMaterial()) return 'Remis – zu wenig Material';
@@ -67,7 +67,7 @@ export function App() {
   const [thinking, setThinking] = useState(false);
   const [resigned, setResigned] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // „Zugblick spielt für mich“: der Bot zieht auch deine Seite, 1–4 s nach Zugbeginn
+  // „Chess Bot 1 spielt für mich“: der Bot zieht auch deine Seite, 1–4 s nach Zugbeginn
   const [pilot, setPilot] = useState(false);
   const [piloting, setPiloting] = useState(false);
   const pilotToken = useRef(0);
@@ -209,7 +209,7 @@ export function App() {
 
       <main className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
         <section className="mx-auto w-full max-w-[min(640px,calc(100dvh-180px))] min-w-[280px]">
-          <PlayerStrip name="Zugblick" side={botSide} active={!over && turn === botSide} status={thinking ? 'thinking' : null} />
+          <PlayerStrip name="Chess Bot 1" side={botSide} active={!over && turn === botSide} status={thinking ? 'thinking' : null} />
           <div className="my-2 rounded-[8px] shadow-[0_1px_0_var(--zb-line),0_8px_24px_-12px_rgba(0,0,0,0.25)]">
             <Board
               fen={fen}
@@ -234,7 +234,7 @@ export function App() {
           <div className="min-h-[120px] flex-1 overflow-y-auto px-2 py-2 max-md:max-h-[240px]">
             {pairs.length === 0 ? (
               <p className="px-2 py-1 text-[13px] text-ink-3">
-                {human === 'w' ? 'Du hast Weiß. Zieh einfach los.' : 'Zugblick hat Weiß und eröffnet.'}
+                {human === 'w' ? 'Du hast Weiß. Zieh einfach los.' : 'Chess Bot 1 hat Weiß und eröffnet.'}
               </p>
             ) : (
               <ol className="grid grid-cols-[32px_1fr_1fr] gap-y-px text-[13.5px]">
@@ -261,10 +261,10 @@ export function App() {
           <div className="shrink-0 space-y-2.5 border-t border-line p-3">
             <label className="flex h-8 cursor-pointer items-center justify-between gap-3 px-0.5">
               <span className="text-[13px] font-[550] text-ink">
-                Zugblick spielt für mich
+                Chess Bot 1 spielt für mich
                 <span className="ml-1.5 font-[450] text-ink-3">1–4 s</span>
               </span>
-              <Switch checked={pilot} onCheckedChange={setPilot} aria-label="Zugblick spielt für mich" />
+              <Switch checked={pilot} onCheckedChange={setPilot} aria-label="Chess Bot 1 spielt für mich" />
             </label>
             <div className="flex items-center gap-2">
               <span className="w-14 text-[12px] text-ink-3">Du spielst</span>
@@ -356,7 +356,7 @@ function PlayerStrip({
       <span className="text-[14px] font-[650] text-ink">{name}</span>
       {status ? (
         <span className={cn('flex items-center gap-1.5 text-[12.5px]', status === 'pilot' ? 'text-brand' : 'text-ink-3')}>
-          {status === 'pilot' ? 'Zugblick zieht für dich' : 'überlegt'}
+          {status === 'pilot' ? 'Chess Bot 1 zieht für dich' : 'überlegt'}
           <span className="zb-dots flex gap-[3px]">
             <span className="size-1 rounded-full bg-current" />
             <span className="size-1 rounded-full bg-current" />

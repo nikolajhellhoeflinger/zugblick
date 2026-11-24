@@ -20,13 +20,9 @@
 - **Hell und dunkel, Großansicht** für Beamer, Tastenkürzel **Alt+Shift+Z** zum Ein- und Ausblenden.
 - **Läuft komplett lokal** – keine Konten, kein Server, keine Daten verlassen deinen Rechner.
 
-## Gegen Zugblick spielen
+## Chess Bot 1
 
-**[nikolajhellhoeflinger.github.io/zugblick](https://nikolajhellhoeflinger.github.io/zugblick/)** – eine Website, nichts zu installieren, läuft auf Laptop und Handy.
-
-Zugblick als Gegner spielt wie ein Mensch, nicht wie Stockfish: Für jeden Zug rechnet Stockfish die guten Kandidaten aus, und der Bot nimmt davon den, den ein Mensch sehen würde – Schlagen, Zurückschlagen, Schach, Figuren entwickeln, bedrohte Figuren retten. Züge, die erst bei großer Rechentiefe aufgehen und auf den ersten Blick schlecht aussehen („Engine-Züge“), lässt er liegen. In der Eröffnung spielt er übliche Hauptzüge, im Mittelspiel ab und zu eine kleine Ungenauigkeit, nie einen groben Patzer. Bedenkzeit wie ein Mensch: Klares geht schnell, schwierige Stellungen dauern länger.
-
-**Zugblick spielt für mich:** Mit dem Schalter zieht der Bot auch deine Seite, jeweils 1–4 Sekunden nach Zugbeginn – zum Zuschauen oder Vorführen. Ziehst du vorher selbst, gilt dein Zug. Das gibt es nur hier auf der eigenen Website, nicht in der Erweiterung auf fremden Schachseiten.
+**[nikolajhellhoeflinger.github.io/zugblick](https://nikolajhellhoeflinger.github.io/zugblick/)** – Schach gegen Chess Bot 1 im Browser, nichts zu installieren. Mit „Chess Bot 1 spielt für mich“ zieht er auch deine Seite.
 
 ## Installieren
 
@@ -93,7 +89,7 @@ pnpm dev        # Chrome mit Zugblick und Live-Neuladen
 pnpm build      # → .output/chrome-mv3
 pnpm zip        # → .output/zugblick-<version>-chrome.zip
 pnpm bench      # Messbank der Bilderkennung (vorher: pnpm bench:collect lichess|chesscom)
-pnpm site:dev   # Website „Gegen Zugblick spielen“ lokal
+pnpm site:dev   # Website Chess Bot 1 lokal
 pnpm site:build # → site/dist (GitHub Pages baut das bei jedem Push selbst)
 ```
 

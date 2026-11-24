@@ -96,7 +96,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
             <>
               <BrandMark className="size-[18px]" />
               <span className="text-[15px] font-[750] tracking-[-0.01em]">Zugblick</span>
-              {s.source && (
+              {s.source === 'bild' && (
                 <span className="ml-1 truncate rounded-[5px] bg-sunken px-1.5 py-[3px] font-mono text-[10.5px] leading-none text-ink-2">
                   {SOURCE_LABEL[s.source] ?? s.source}
                 </span>

@@ -8,7 +8,7 @@ import type { Settings } from '../settings';
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-11 items-center gap-3 px-4 py-1.5">
+    <div className="flex min-h-10 items-center gap-3 px-4 py-1">
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-[550] text-ink">{label}</div>
         {hint && <div className="text-[11.5px] leading-snug text-ink-3">{hint}</div>}
@@ -41,7 +41,7 @@ function Segments<T extends string>({
         <ToggleGroupItem
           key={o.value}
           value={o.value}
-          className="h-7 min-w-0 rounded-md px-2 text-[11.5px] font-[550] text-ink-3 hover:bg-transparent hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--zb-line-strong)]"
+          className="h-7 min-w-0 rounded-md px-2 text-[11.5px] font-[550] text-ink-2 hover:bg-transparent hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--zb-line-strong)]"
         >
           {o.label}
         </ToggleGroupItem>
@@ -108,13 +108,13 @@ export function SettingsView({
             onChange={(arrows) => up({ arrows })}
           />
         </Row>
-        <Row label="Drohung zeigen" hint="Was der Gegner vorhat, wenn du nichts tust">
+        <Row label="Drohung zeigen">
           <Switch checked={st.threat} onCheckedChange={(threat) => up({ threat })} />
         </Row>
-        <Row label="Züge bewerten" hint="Bester Zug, Ungenau, Fehler, Patzer">
+        <Row label="Züge bewerten">
           <Switch checked={st.quality} onCheckedChange={(quality) => up({ quality })} />
         </Row>
-        <Row label="Nur bei meinem Zug" hint="Keine Pfeile, solange der Gegner zieht">
+        <Row label="Nur bei meinem Zug">
           <Switch checked={st.myTurnOnly} onCheckedChange={(myTurnOnly) => up({ myTurnOnly })} />
         </Row>
       </Group>
@@ -132,10 +132,10 @@ export function SettingsView({
             onChange={(theme) => up({ theme })}
           />
         </Row>
-        <Row label="Großansicht" hint="Größere Schrift und Pfeile, z. B. am Beamer">
+        <Row label="Großansicht">
           <Switch checked={st.large} onCheckedChange={(large) => up({ large })} />
         </Row>
-        <Row label="Automatisch öffnen" hint="Sobald eine Seite ein Schachbrett zeigt">
+        <Row label="Automatisch öffnen">
           <Switch checked={st.autoStart} onCheckedChange={(autoStart) => up({ autoStart })} />
         </Row>
       </Group>

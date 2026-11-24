@@ -2,20 +2,23 @@ import { cn } from '@/lib/utils';
 
 const PIECE_URL = (code: string) => browser.runtime.getURL(`/pieces/${code}.svg` as '/pieces/wK.svg');
 
+/**
+ * Figur als ausgefüllte Silhouette in Textfarbe (wie in Schachbüchern):
+ * lesbar in Hell und Dunkel und in jeder Größe.
+ */
 export function PieceIcon({ code, className }: { code: string; className?: string }) {
+  const url = `url("${PIECE_URL('b' + code.slice(-1))}")`;
   return (
-    <img
-      src={PIECE_URL(code)}
-      alt=""
-      draggable={false}
-      className={cn('inline-block size-[1.05em] shrink-0 align-[-0.16em]', className)}
+    <span
+      aria-hidden="true"
+      className={cn('inline-block size-[1.15em] shrink-0 bg-current align-[-0.2em]', className)}
+      style={{ maskImage: url, WebkitMaskImage: url, maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center' }}
     />
   );
 }
 
 /**
  * SAN als Figurinen-Notation: „Nf3“ → [Springer]f3. Sprachneutral, wie in Schachbüchern.
- * `color` bestimmt, welche Figurenfarbe gezeigt wird.
  */
 export function San({
   san,
@@ -36,15 +39,15 @@ export function San({
   if (!m) return <span className={className}>{san}</span>;
   const [, piece, disamb, capture, target, , promo, suffix] = m;
   return (
-    <span className={cn('inline-flex items-baseline whitespace-nowrap', className)}>
-      {piece && <PieceIcon code={color + piece} className="mr-[0.04em]" />}
+    <span className={cn('whitespace-nowrap', className)}>
+      {piece && <PieceIcon code={piece} className="mr-[0.06em]" />}
       {disamb}
       {capture && <span className="opacity-70">×</span>}
       <span className={framed ? 'zb-target' : undefined}>{target}</span>
       {promo && (
         <>
           <span className="opacity-60">=</span>
-          <PieceIcon code={color + promo} />
+          <PieceIcon code={promo} />
         </>
       )}
       {suffix && <span className="ml-[0.04em]">{suffix}</span>}

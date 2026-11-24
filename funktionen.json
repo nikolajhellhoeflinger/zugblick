@@ -1,0 +1,20 @@
+[
+  { "ablauf": "Panel erscheint automatisch auf einer Schachseite (lichess Analyse)", "schritte": ["lichess.org/analysis öffnen"], "geprueft": true },
+  { "ablauf": "chess.com Analysebrett wird gelesen, bester Zug als Pfeil und im Panel", "schritte": ["chess.com/analysis öffnen", "d4, Sf6, c4 ziehen"], "geprueft": true },
+  { "ablauf": "Echte Partie mit Schwarz gegen den lichess-Computer: gedrehtes Brett, Zugseite, Zugfolge, Bewertung der Gegnerzüge", "schritte": ["lichess → Gegen den Computer → Schwarz", "4 Züge nach Vorschlag spielen"], "geprueft": true },
+  { "ablauf": "Figur anklicken zeigt ihren besten Zug und den Abstand zum besten Zug", "schritte": ["Springer g8 anklicken"], "geprueft": true },
+  { "ablauf": "Stärke 2200 Elo liefert einen eigenen Vorschlag", "schritte": ["Stärke 2200 wählen"], "geprueft": true },
+  { "ablauf": "Drohung zeigen", "schritte": ["Einstellungen → Drohung zeigen"], "geprueft": true },
+  { "ablauf": "Zugbewertung (Bester Zug … Patzer) und Genauigkeit", "schritte": ["Partie verfolgen, Patzer spielen"], "geprueft": true },
+  { "ablauf": "Zugseite aus FEN-Feld der Seite (lichess Analyse mit Schwarz am Zug)", "schritte": ["lichess.org/analysis/<fen mit b>"], "geprueft": true },
+  { "ablauf": "Bilderkennung: Brett als Bild automatisch finden, Grundstellung lernen, Stellungswechsel lesen", "schritte": ["Seite mit Brett-Bild", "Zugblick-Symbol", "Brett per Bild erkennen"], "geprueft": true },
+  { "ablauf": "Bilderkennung: Rahmen von Hand ziehen, wenn die automatische Suche nichts findet", "schritte": ["Brett per Bild erkennen", "Rahmen ziehen"], "geprueft": false },
+  { "ablauf": "chessboard.js-Bretter werden gelesen", "schritte": ["Demo-Seite tools/demo"], "geprueft": true },
+  { "ablauf": "Panel verschieben, Position wird je Seite gemerkt", "schritte": ["Kopfzeile ziehen", "Seite neu laden"], "geprueft": true },
+  { "ablauf": "Einklappen / Ausklappen", "schritte": ["Pfeil oben im Panel"], "geprueft": true },
+  { "ablauf": "Design Dunkel und Großansicht", "schritte": ["Einstellungen"], "geprueft": true },
+  { "ablauf": "Panel schließen", "schritte": ["X im Panel"], "geprueft": true },
+  { "ablauf": "Ein/aus über das Symbol in der Browserleiste und Alt+Shift+Z", "schritte": ["Symbol klicken", "Alt+Shift+Z"], "geprueft": false },
+  { "ablauf": "Installation per Skript (macOS/Windows) aus dem Release", "schritte": ["install.sh bzw. install.ps1"], "geprueft": false },
+  { "ablauf": "chess.com Live-Partie gegen Bot", "schritte": ["chess.com → Gegen Computer spielen"], "geprueft": false }
+]

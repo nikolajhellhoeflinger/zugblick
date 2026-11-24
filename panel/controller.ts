@@ -127,6 +127,7 @@ function inferCastling(placement: string): string {
 
 /** Wer ist am Zug? Aus der Hervorhebung des letzten Zugs: Wer dort steht, hat gezogen. */
 function inferTurn(read: BoardRead): { turn: Color; certain: boolean } {
+  if (read.turn) return { turn: read.turn, certain: true };
   const p = fenToPlacement(read.placement);
   const colors = new Set<Color>();
   for (const sq of read.lastMove) {
@@ -138,7 +139,8 @@ function inferTurn(read: BoardRead): { turn: Color; certain: boolean } {
     return { turn: mover === 'w' ? 'b' : 'w', certain: true };
   }
   if (read.placement === START_PLACEMENT) return { turn: 'w', certain: true };
-  return { turn: 'w', certain: false };
+  // Unklar: Wer unten sitzt, will meist seinen eigenen Zug wissen (lichess dreht Analysebretter auch so).
+  return { turn: read.orientation, certain: false };
 }
 
 /**
@@ -272,7 +274,8 @@ export class Controller {
       this.set({ phase: 'invalid', source: read.source, orientation: read.orientation, lines: [], best: null });
       return;
     }
-    const sameBoard = read.placement === this.lastPlacement;
+    const sameBoard =
+      read.placement === this.lastPlacement && !(read.turn && this.game && read.turn !== this.game.turn() && !this.turnOverride.has(read.placement));
     this.lastOrientation = read.orientation;
     if (sameBoard && this.game) {
       if (read.orientation !== this.state.orientation || read.analysis !== this.state.analysisBoard) {

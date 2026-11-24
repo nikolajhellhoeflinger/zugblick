@@ -14,6 +14,8 @@ export interface BoardRead {
   source: SourceId;
   /** Analysebrett (beide Seiten „du“) statt Partie gegen jemanden. */
   analysis: boolean;
+  /** Zugseite, falls die Seite sie verrät (z. B. ein FEN-Feld). */
+  turn?: Color;
 }
 
 export type ArrowKind = 'best' | 'alt' | 'piece' | 'threat' | 'opponent' | 'preview';

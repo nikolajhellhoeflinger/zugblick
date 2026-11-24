@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Zugblick Demo</title>
+<style>
+  body { margin: 0; font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; background: #ecebe7; color: #222; }
+  main { display: flex; padding: 48px 56px; gap: 40px; }
+  .board-b72b1 { width: 600px; height: 600px; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border-radius: 4px; overflow: hidden; box-shadow: 0 2px 0 rgba(0,0,0,.06); }
+  .square-55d63 { position: relative; }
+  .white-1e1d7 { background: #f0d9b5; } .black-3c85d { background: #b58863; }
+  .square-55d63 img { width: 100%; height: 100%; display: block; }
+</style></head>
+<body><main><div id="board" class="board-b72b1"></div></main>
+<script>
+const files = 'abcdefgh';
+function draw(fen, flip) {
+  const rows = fen.split(' ')[0].split('/');
+  const grid = [];
+  rows.forEach((row, i) => { let f = 0; for (const ch of row) { if (/\d/.test(ch)) { for (let k = 0; k < +ch; k++) grid.push(null); f += +ch; } else { grid.push(ch); f++; } } });
+  const b = document.getElementById('board'); b.innerHTML = '';
+  for (let k = 0; k < 64; k++) {
+    const idx = flip ? 63 - k : k;
+    const r = Math.floor(idx / 8), f = idx % 8;
+    const sq = document.createElement('div');
+    sq.className = 'square-55d63 ' + ((r + f) % 2 === 0 ? 'white-1e1d7' : 'black-3c85d');
+    sq.dataset.square = files[f] + (8 - r);
+    const p = grid[idx];
+    if (p) { const img = document.createElement('img'); const code = (p === p.toUpperCase() ? 'w' : 'b') + p.toUpperCase(); img.src = code + '.svg'; img.dataset.piece = code; sq.appendChild(img); }
+    b.appendChild(sq);
+  }
+}
+window.draw = draw;
+draw('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w');
+</script></body></html>

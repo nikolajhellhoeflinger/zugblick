@@ -198,3 +198,21 @@ export function pickAdapter(min = 120): { adapter: BoardAdapter; el: Element } |
   }
   return null;
 }
+
+/**
+ * Viele Seiten zeigen die Stellung zusätzlich als FEN-Text (Eingabefeld, Kopierfeld).
+ * Passt deren Platzierung zum gelesenen Brett, verrät sie, wer am Zug ist.
+ */
+const FEN_RE = /([pnbrqkPNBRQK1-8]{1,8}(?:\/[pnbrqkPNBRQK1-8]{1,8}){7})\s+([wb])\b/;
+
+export function findFenTurn(placement: string): 'w' | 'b' | undefined {
+  const fields = document.querySelectorAll('input, textarea, [data-fen]');
+  for (const el of Array.from(fields).slice(0, 200)) {
+    const value = 'value' in el ? String((el as HTMLInputElement).value ?? '') : '';
+    const text = value || el.getAttribute('data-fen') || '';
+    if (!text || text.length > 200) continue;
+    const m = FEN_RE.exec(text);
+    if (m && m[1] === placement) return m[2] as 'w' | 'b';
+  }
+  return undefined;
+}

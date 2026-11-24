@@ -23,8 +23,9 @@
   --zb-inaccuracy: #b7841f;
   --zb-mistake: #d0651f;
   --zb-blunder: #d03a3a;
-  --zb-bar-white: #f4f4f1;
+  --zb-bar-white: #f4f4f5;
   --zb-bar-black: #1a1d23;
+  --zb-knob: #fafafa;
 
   --background: var(--zb-surface);
   --foreground: var(--zb-ink);
@@ -62,7 +63,7 @@
   --zb-mistake: #f08a45;
   --zb-blunder: #f06262;
   --zb-bar-white: #e8e9ec;
-  --zb-bar-black: #0c0e12;
+  --zb-bar-black: #07080a;
 }
 
 @theme inline {

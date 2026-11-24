@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import type { ToContent } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
 import type { Controller, State } from '../controller';
-import { formatNps, formatScore, winPct } from '../notation';
+import { formatScore, winPct } from '../notation';
+import { Continuation } from './Lines';
 import { San } from './Figurine';
 import { IconButton } from './IconButton';
 
@@ -12,7 +13,7 @@ function EvalBar({ white, orientation, mate }: { white: number; orientation: 'w'
   const whiteBottom = orientation === 'w';
   return (
     <div
-      className="relative w-[9px] shrink-0 self-stretch overflow-hidden rounded-[5px] bg-bar-black ring-1 ring-line-strong ring-inset"
+      className="relative w-2 shrink-0 self-stretch overflow-hidden rounded-[4px] border border-line-strong bg-bar-black"
       role="img"
       aria-label={`Gewinnchance Weiß ${Math.round(white)} Prozent`}
     >
@@ -129,6 +130,8 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
   const best = s.best;
   const bestWhite = best?.score ? (s.turn === 'w' ? best.score : best.score.mate != null ? { mate: -best.score.mate } : { cp: -(best.score.cp ?? 0) }) : top?.white;
   const progress = Math.min(1, s.depth / s.maxDepth);
+  // Hauptvariante des empfohlenen Zugs (ohne den Zug selbst)
+  const pv = s.lines.find((l) => l.move.uci === best?.uci)?.cont ?? [];
 
   return (
     <div className="relative">
@@ -183,18 +186,18 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
           </div>
 
           <p className="mt-2 truncate text-[13.5px] text-ink-2">{best?.text ?? ' '}</p>
-
-          <div className="mt-2.5 flex items-center gap-2.5 font-mono text-[10.5px] text-ink-3 tabular-nums">
-            <span>
-              Tiefe {s.depth}
-              <span className="opacity-60">/{s.maxDepth}</span>
-            </span>
-            {s.nps > 0 && <span>{formatNps(s.nps)}</span>}
-            <span className="ml-auto">{s.settings.elo ? `${s.settings.elo} Elo` : 'volle Stärke'}</span>
+          <div className="mt-1 flex h-4 items-center">
+            {pv.length > 0 && <Continuation moves={pv} turn={s.turn} className="text-[11.5px]" />}
           </div>
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 h-[2px] bg-line">
+      <div
+        className={cn(
+          'absolute inset-x-0 bottom-0 h-[2px] transition-opacity duration-500',
+          progress >= 1 ? 'opacity-0' : 'opacity-100',
+        )}
+        title={`Rechentiefe ${s.depth} von ${s.maxDepth}`}
+      >
         <div
           className="h-full bg-[var(--zb-accent)] transition-[width] duration-300 ease-out"
           style={{ width: `${progress * 100}%` }}

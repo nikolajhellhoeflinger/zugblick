@@ -19,14 +19,14 @@ export function Strength({ value, onChange }: { value: number | null; onChange: 
           <ToggleGroupItem
             key={elo}
             value={String(elo)}
-            className="h-7 min-w-0 rounded-md px-0 font-mono text-[11px] text-ink-3 tabular-nums hover:bg-transparent hover:text-ink data-[state=on]:bg-surface data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--zb-line-strong)]"
+            className="h-7 min-w-0 rounded-md px-0 font-mono text-[11px] text-ink-2 tabular-nums hover:bg-transparent hover:text-ink data-[state=on]:bg-surface data-[state=on]:font-[650] data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--zb-line-strong)]"
           >
             {elo}
           </ToggleGroupItem>
         ))}
         <ToggleGroupItem
           value="max"
-          className="h-7 min-w-0 rounded-md px-1.5 text-[11px] font-[700] text-ink-3 hover:bg-transparent hover:text-ink data-[state=on]:bg-[var(--zb-accent)] data-[state=on]:text-brand-ink"
+          className="h-7 min-w-0 rounded-md px-1.5 font-mono text-[11px] text-ink-2 hover:bg-transparent hover:text-ink data-[state=on]:bg-surface data-[state=on]:font-[650] data-[state=on]:text-ink data-[state=on]:shadow-[0_0_0_1px_var(--zb-line-strong)]"
         >
           Max
         </ToggleGroupItem>

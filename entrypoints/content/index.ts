@@ -1,4 +1,4 @@
-import { pickAdapter, type BoardAdapter } from '@/content/readers';
+import { findFenTurn, pickAdapter, type BoardAdapter } from '@/content/readers';
 import { Overlay } from '@/content/overlay';
 import { PanelHost } from '@/content/panel-host';
 import { Vision } from '@/content/vision';
@@ -34,7 +34,7 @@ export default defineContentScript({
     const sendRead = (read: BoardRead) => {
       orientation = read.orientation;
       overlay?.setOrientation(read.orientation);
-      const key = `${read.placement}|${read.orientation}|${read.lastMove.join(',')}`;
+      const key = `${read.placement}|${read.orientation}|${read.lastMove.join(',')}|${read.turn ?? ''}`;
       if (key === lastKey) return;
       lastKey = key;
       host?.send({ type: 'board', read });
@@ -75,6 +75,7 @@ export default defineContentScript({
         return;
       }
       overlay?.place(rect());
+      read.turn = findFenTurn(read.placement);
       sendRead(read);
     };
 

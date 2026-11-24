@@ -156,8 +156,9 @@
       "e2–e4 ziehen (Klick oder Ziehen)",
       "Bot antwortet nach 0,4–1,1 s (Eröffnung)",
       "weitere Züge, Rochade, Zugliste füllt sich",
-      "hell, dunkel, Handy 390 px"
+      "hell, dunkel, Handy 390 px",
+      "live geprüft 24.11.: hell/dunkel/Handy je 3 Züge, als Schwarz 10 Züge, keine Fehler"
     ],
-    "geprueft": false
+    "geprueft": true
   }
 ]

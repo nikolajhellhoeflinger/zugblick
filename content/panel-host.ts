@@ -16,6 +16,7 @@ interface Pos {
 
 export class PanelHost {
   private frame: HTMLIFrameElement;
+  private shell: HTMLElement;
   private port: MessagePort | null = null;
   private queue: ToPanel[] = [];
   private width = 340;
@@ -28,8 +29,12 @@ export class PanelHost {
     private onMessage: (msg: ToContent) => void,
     private anchor: () => DOMRect | null,
   ) {
+    // Einmal-Schlüssel: nur wer ihn kennt, darf den Kanal zum Panel öffnen.
+    // Er steht im Fragment der Panel-Adresse, und die liegt in einem geschlossenen
+    // Shadow-DOM – Seiten-Skripte kommen an beides nicht heran.
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
     const frame = document.createElement('iframe');
-    frame.src = browser.runtime.getURL('/panel.html');
+    frame.src = `${browser.runtime.getURL('/panel.html')}#${nonce}`;
     frame.title = 'Zugblick';
     frame.setAttribute('allow', '');
     setStyles(frame, {
@@ -64,13 +69,28 @@ export class PanelHost {
     const channel = new MessageChannel();
     frame.addEventListener('load', () => {
       const origin = new URL(browser.runtime.getURL('/')).origin;
-      frame.contentWindow?.postMessage({ zb: 'init' }, origin, [channel.port2]);
+      frame.contentWindow?.postMessage({ zb: 'init', nonce }, origin, [channel.port2]);
     });
     channel.port1.onmessage = (e: MessageEvent<ToContent>) => this.handle(e.data);
     this.port = null;
     this.pendingPort = channel.port1;
 
-    document.documentElement.appendChild(frame);
+    this.shell = document.createElement('zugblick-panel');
+    setStyles(this.shell, {
+      position: 'fixed',
+      left: '0px',
+      top: '0px',
+      width: '0px',
+      height: '0px',
+      margin: '0',
+      padding: '0',
+      border: '0',
+      display: 'block',
+      'z-index': '2147483647',
+      transform: 'none',
+    });
+    this.shell.attachShadow({ mode: 'closed' }).appendChild(frame);
+    document.documentElement.appendChild(this.shell);
     void this.restore();
     window.addEventListener('resize', this.onResize);
   }
@@ -173,6 +193,6 @@ export class PanelHost {
     window.removeEventListener('resize', this.onResize);
     this.port?.close();
     this.pendingPort.close();
-    this.frame.remove();
+    this.shell.remove();
   }
 }

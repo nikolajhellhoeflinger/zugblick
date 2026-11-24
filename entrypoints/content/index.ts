@@ -5,6 +5,9 @@ import { Vision } from '@/content/vision';
 import { squareName, type Color } from '@/lib/board';
 import type { BoardRead, ToContent } from '@/lib/protocol';
 
+/** Automatisch öffnen nur bei Brettern ab dieser Kantenlänge (keine Vorschaubilder). */
+const AUTO_MIN = 280;
+
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_idle',
@@ -165,7 +168,7 @@ export default defineContentScript({
       placeAll();
       // Seiten tauschen ihr Brett bei Navigation oft aus (Single-Page-Apps).
       if (active && !vision?.active && (!current || !current.el.isConnected)) readNow();
-      if (!active && autoStart && !dismissed && pickAdapter()) activate();
+      if (!active && autoStart && !dismissed && pickAdapter(AUTO_MIN)) activate();
     }, 700);
 
     browser.runtime.onMessage.addListener((msg: unknown) => {
@@ -185,10 +188,10 @@ export default defineContentScript({
       .then((got) => {
         const s = got['zb:settings'] as { autoStart?: boolean } | undefined;
         autoStart = s?.autoStart ?? true;
-        if (autoStart && pickAdapter()) activate();
+        if (autoStart && pickAdapter(AUTO_MIN)) activate();
       })
       .catch(() => {
-        if (pickAdapter()) activate();
+        if (pickAdapter(AUTO_MIN)) activate();
       });
 
     browser.storage.onChanged.addListener((changes) => {

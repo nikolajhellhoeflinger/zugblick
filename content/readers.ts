@@ -12,19 +12,19 @@ import type { BoardRead, SourceId } from '@/lib/protocol';
 export interface BoardAdapter {
   id: SourceId;
   /** Größtes sichtbares Brett dieser Bauart, sonst null. */
-  find(): Element | null;
+  find(min?: number): Element | null;
   /** null = Brett gerade in Bewegung (Animation, Ziehen) – später erneut lesen. */
   read(el: Element): BoardRead | null;
   /** Fläche der 64 Felder im Viewport. */
   rect(el: Element): DOMRect;
 }
 
-function largestVisible(nodes: Iterable<Element>): Element | null {
+function largestVisible(nodes: Iterable<Element>, min = 120): Element | null {
   let best: Element | null = null;
   let bestArea = 0;
   for (const el of nodes) {
     const r = el.getBoundingClientRect();
-    if (r.width < 120 || r.height < 120) continue;
+    if (r.width < min || r.height < min) continue;
     const style = getComputedStyle(el);
     if (style.visibility === 'hidden' || style.display === 'none') continue;
     const area = r.width * r.height;
@@ -52,8 +52,8 @@ function isAnalysisPath(): boolean {
 // chess.com: <wc-chess-board> mit <div class="piece wp square-52">
 const chessCom: BoardAdapter = {
   id: 'chess.com',
-  find() {
-    return largestVisible(document.querySelectorAll('wc-chess-board, chess-board'));
+  find(min) {
+    return largestVisible(document.querySelectorAll('wc-chess-board, chess-board'), min);
   },
   read(el) {
     const p = emptyPlacement();
@@ -100,8 +100,8 @@ function parseTranslate(style: string): [number, number] | null {
 function chessgroundAdapter(id: SourceId): BoardAdapter {
   return {
     id,
-    find() {
-      return largestVisible(document.querySelectorAll('cg-board'));
+    find(min) {
+      return largestVisible(document.querySelectorAll('cg-board'), min);
     },
     read(el) {
       const size = (el as HTMLElement).clientWidth / 8;
@@ -154,8 +154,8 @@ function chessgroundAdapter(id: SourceId): BoardAdapter {
 // chessboard.js (viele kleine Seiten und Tutorials): .square-55d63[data-square] > img[data-piece="wP"]
 const chessboardJs: BoardAdapter = {
   id: 'chessboard.js',
-  find() {
-    return largestVisible(document.querySelectorAll('.board-b72b1'));
+  find(min) {
+    return largestVisible(document.querySelectorAll('.board-b72b1'), min);
   },
   read(el) {
     const squares = el.querySelectorAll('[data-square]');
@@ -184,7 +184,8 @@ const chessboardJs: BoardAdapter = {
   },
 };
 
-export function pickAdapter(): { adapter: BoardAdapter; el: Element } | null {
+/** `min`: kleinste Kantenlänge in px – fürs automatische Öffnen nur echte Bretter, keine Vorschaubilder. */
+export function pickAdapter(min = 120): { adapter: BoardAdapter; el: Element } | null {
   const host = location.hostname;
   const order: BoardAdapter[] = host.endsWith('chess.com')
     ? [chessCom, chessgroundAdapter('chessground'), chessboardJs]
@@ -192,7 +193,7 @@ export function pickAdapter(): { adapter: BoardAdapter; el: Element } | null {
       ? [chessgroundAdapter('lichess'), chessCom, chessboardJs]
       : [chessgroundAdapter('chessground'), chessCom, chessboardJs];
   for (const adapter of order) {
-    const el = adapter.find();
+    const el = adapter.find(min);
     if (el) return { adapter, el };
   }
   return null;

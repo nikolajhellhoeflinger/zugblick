@@ -21,6 +21,8 @@
 
 ## Installieren
 
+Läuft in allen Chromium-Browsern: Chrome, Edge, Brave, Arc, Opera – auf Windows und macOS. Firefox und Safari werden noch nicht unterstützt.
+
 ### Am schnellsten: mit Claude
 
 Gib deiner Claude-Instanz (Claude Code, Claude Desktop) einfach diesen Link und sag „Installier mir das“:

@@ -52,6 +52,15 @@ export default defineContentScript({
       }
     };
 
+    /** „Neues Spiel“-Knopf der Seite finden und drücken (Text je nach Seite, deutsch oder englisch). */
+    const NEW_GAME = /^(neues spiel|neue partie|new game|rematch|revanche)$/i;
+    const clickNewGame = () => {
+      const btn = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].find(
+        (el) => el.offsetParent !== null && NEW_GAME.test((el.textContent ?? '').replace(/\s+/g, ' ').trim()),
+      );
+      btn?.click();
+    };
+
     const playMove = (from: string, to: string, promotion: boolean) => {
       clickSquare(from);
       window.setTimeout(() => {
@@ -134,6 +143,8 @@ export default defineContentScript({
       if (msg.type === 'overlay') {
         overlay?.render(msg.overlay);
         overlay?.place(rect());
+      } else if (msg.type === 'newgame') {
+        clickNewGame();
       } else if (msg.type === 'play') {
         playMove(msg.from, msg.to, msg.promotion);
       } else if (msg.type === 'close') {

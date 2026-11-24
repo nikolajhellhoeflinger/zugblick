@@ -113,6 +113,22 @@ export function SettingsView({
             aria-label="Bedenkzeit von bis"
           />
         </div>
+        <Row label="Neues Spiel" hint="Nach Partieende automatisch weiterspielen">
+          <Switch checked={st.autoNewGame} onCheckedChange={(autoNewGame) => up({ autoNewGame })} />
+        </Row>
+        <Row label="Spielzeit" hint={st.sessionMinutes === 0 ? 'Unbegrenzt' : `${st.sessionMinutes} Minuten, dann stoppt es`}>
+          <span />
+        </Row>
+        <div className="px-4 pb-2">
+          <Slider
+            min={0}
+            max={180}
+            step={5}
+            value={[st.sessionMinutes]}
+            onValueChange={([v]) => up({ sessionMinutes: v ?? 0 })}
+            aria-label="Spielzeit in Minuten"
+          />
+        </div>
         <Row label="Verteilung">
           <Segments
             label="Verteilung"

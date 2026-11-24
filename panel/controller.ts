@@ -206,6 +206,10 @@ export class Controller {
   private playTimerFen = '';
   private playedKey = '';
   private playListener: ((m: { from: string; to: string; promotion: boolean }) => void) | null = null;
+  private newGameListener: (() => void) | null = null;
+  private sessionEnd = 0;
+  private newGameFor = '';
+  private newGameTimer = 0;
 
   state: State = {
     phase: 'connecting',
@@ -250,6 +254,7 @@ export class Controller {
       this.set({ settings: s, maxDepth: DEPTH[s.depth] });
       this.analyze();
     });
+    window.setInterval(() => this.checkSession(), 1000);
     document.addEventListener('visibilitychange', () => {
       this.paused = document.visibilityState === 'hidden';
       if (this.paused) this.stopAll();
@@ -271,11 +276,44 @@ export class Controller {
     this.playListener = fn;
   }
 
+  onNewGame(fn: () => void) {
+    this.newGameListener = fn;
+  }
+
   setAutoplay(on: boolean) {
     this.playedKey = '';
     window.clearTimeout(this.playTimer);
     this.playTimerFen = '';
+    const mins = this.state.settings.sessionMinutes;
+    this.sessionEnd = on && mins > 0 ? Date.now() + mins * 60_000 : 0;
+    this.newGameFor = '';
+    window.clearTimeout(this.newGameTimer);
     this.set({ autoplay: on });
+  }
+
+  /** Spielzeit abgelaufen → Autospielen aus. Läuft im Sekundentakt, weil dann keine Zustandsänderung kommt. */
+  private checkSession() {
+    if (this.state.autoplay && this.sessionEnd && Date.now() >= this.sessionEnd) this.setAutoplay(false);
+  }
+
+  /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken. */
+  private newGameTick() {
+    const s = this.state;
+    const over = s.autoplay && s.settings.autoNewGame && s.phase === 'gameover' && !!s.fen;
+    if (!over) {
+      window.clearTimeout(this.newGameTimer);
+      this.newGameTimer = 0;
+      this.newGameFor = '';
+      return;
+    }
+    const key = fenKey(s.fen!);
+    if (this.newGameFor === key) return;
+    this.newGameFor = key;
+    window.clearTimeout(this.newGameTimer);
+    this.newGameTimer = window.setTimeout(() => {
+      this.newGameTimer = 0;
+      if (this.state.autoplay && this.state.settings.autoNewGame) this.newGameListener?.();
+    }, 1500 + Math.random() * 1500);
   }
 
   /** Bedenkzeit nach den Einstellungen von/bis, gleichmäßig oder unregelmäßig (meist kurz, manchmal lang). */
@@ -320,6 +358,7 @@ export class Controller {
 
   private set(patch: Partial<State>) {
     this.state = { ...this.state, ...patch };
+    this.newGameTick();
     this.autoplayTick();
     if (this.emitQueued) return;
     this.emitQueued = true;

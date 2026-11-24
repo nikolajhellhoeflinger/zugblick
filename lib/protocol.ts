@@ -60,4 +60,5 @@ export type ToContent =
   | { type: 'drag'; phase: 'start' | 'move' | 'end'; screenX: number; screenY: number }
   | { type: 'close' }
   | { type: 'play'; from: string; to: string; promotion: boolean }
+  | { type: 'newgame' }
   | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

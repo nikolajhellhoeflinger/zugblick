@@ -8,6 +8,10 @@ export interface Settings {
   tempoMax: number;
   /** gleich: überall zwischen von und bis gleich wahrscheinlich; unregelmaessig: meist kurz, manchmal lang. */
   tempoArt: 'gleich' | 'unregelmaessig';
+  /** Nach Partieende automatisch „Neues Spiel“ klicken und weiterspielen. */
+  autoNewGame: boolean;
+  /** Spielzeit in Minuten für das automatische Spielen; 0 = unbegrenzt. */
+  sessionMinutes: number;
   lines: number;
   arrows: 'all' | 'best' | 'off';
   depth: 'fast' | 'normal' | 'deep';
@@ -26,6 +30,8 @@ export const DEFAULTS: Settings = {
   tempoMin: 1,
   tempoMax: 4,
   tempoArt: 'unregelmaessig',
+  autoNewGame: false,
+  sessionMinutes: 0,
   lines: 3,
   arrows: 'all',
   depth: 'normal',

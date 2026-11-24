@@ -58,10 +58,10 @@ function arrowGeometry(a: OverlayArrow, orientation: Color, scale: number): Arro
   const [x2, y2] = center(a.to, orientation);
   const color = COLORS[a.kind];
   const primary = a.kind === 'best' || a.kind === 'piece' || a.kind === 'opponent' || a.kind === 'preview';
-  const width = (primary ? 0.17 : 0.12) * scale * (0.75 + 0.25 * a.weight);
+  const width = (primary ? (a.pending ? 0.13 : 0.17) : 0.12) * scale * (0.75 + 0.25 * a.weight);
   const head = width * 2.6;
-  const opacity = primary ? 0.92 : 0.25 + 0.45 * a.weight;
-  const dashed = a.kind === 'threat';
+  const opacity = a.pending ? 0.4 : primary ? 0.92 : 0.25 + 0.45 * a.weight;
+  const dashed = a.kind === 'threat' || !!a.pending;
 
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);

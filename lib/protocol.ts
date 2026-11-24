@@ -27,6 +27,8 @@ export interface OverlayArrow {
   kind: ArrowKind;
   /** 0–1, steuert Deckkraft und Breite. */
   weight: number;
+  /** Zug noch nicht fest (Stockfish rechnet): blass und gestrichelt. */
+  pending?: boolean;
 }
 
 export interface OverlayModel {

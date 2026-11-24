@@ -138,5 +138,15 @@
       "curl … install.sh | bash"
     ],
     "geprueft": true
+  },
+  {
+    "ablauf": "Bester Zug springt nicht mehr: vorläufig grau mit „rechnet“, dann „Sicher“ mit vollem Pfeil und Sucherrahmen; ein sicherer Zug wechselt nur noch für einen klar besseren",
+    "schritte": [
+      "lichess.org/analysis öffnen",
+      "1.e4 c5 2.Sf3 ziehen",
+      "nach jedem Zug: erst grauer Zug und blasser gestrichelter Pfeil, nach wenigen Zehntelsekunden „Sicher“, blauer Rahmen, voller Pfeil",
+      "Partie gegen den lichess-Computer: „Sicher“ 30–110 ms nach dem Zug des Gegners"
+    ],
+    "geprueft": true
   }
 ]

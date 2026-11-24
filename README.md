@@ -10,6 +10,7 @@
 ## Was es kann
 
 - **Bester Zug in Echtzeit** – Stockfish 19 rechnet bei jeder Stellungsänderung neu, Pfeil und Panel folgen sofort.
+- **Kein Hin und Her** – solange Stockfish noch rechnet, ist der Zug grau und der Pfeil gestrichelt. Steht er fest, erscheint **Sicher**, der Pfeil wird voll und der Rahmen rastet auf dem Zielfeld ein. Meist nach wenigen Zehntelsekunden.
 - **Mehrere Möglichkeiten** – bis zu fünf Varianten mit Bewertung und Fortsetzung, die Alternativen als dünnere Pfeile.
 - **Figur anklicken** – zeigt den besten Zug genau dieser Figur und wie viel schwächer er als der beste Zug ist.
 - **Stärke wählbar** – von 2000 Elo bis volle Stockfish-Stärke.

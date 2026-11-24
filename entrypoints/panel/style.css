@@ -172,8 +172,48 @@ body {
   animation: zb-rise 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Zug steht fest: der Rahmen ums Zielfeld rastet ein – wie der Sucherrahmen auf dem Brett. */
+@keyframes zb-lock {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Registriert, damit sich Länge und Stärke der Rahmenecken animieren lassen. */
+@property --l {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0.28em;
+}
+
+@property --w {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0.07em;
+}
+
+@keyframes zb-snap {
+  from {
+    --l: 0.62em;
+    --w: 0.11em;
+  }
+}
+
+.zb-lock {
+  animation: zb-lock 200ms ease-out both;
+}
+
+.zb-lock .zb-target {
+  animation: zb-snap 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .zb-rise {
+  .zb-rise,
+  .zb-lock,
+  .zb-lock .zb-target {
     animation: none;
   }
 }

@@ -67,6 +67,8 @@ export interface State {
   nps: number;
   lines: LineView[];
   best: (MoveView & { score?: Score }) | null;
+  /** Der angezeigte Zug steht fest (sonst: Stockfish rechnet noch, Zug ist vorläufig). */
+  settled: boolean;
   bestSource: 'engine' | 'elo';
   piece: PieceView | null;
   threat: MoveView | null;
@@ -89,6 +91,18 @@ const QUALITY: Record<Tone, { label: string; glyph: string }> = {
 };
 
 const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js';
+
+// Unter dieser Tiefe springt der beste Zug ständig – erst ab hier wird er gezeigt.
+const SHOW_DEPTH = 10;
+// Ein gezeigter Zug wird erst ersetzt, wenn sich der neue zwei Tiefen in Folge hält.
+// Gleich gute Züge, die sich je Tiefe abwechseln, lassen die Anzeige so in Ruhe.
+const SWITCH = 2;
+// „Sicher“: ab Tiefe 12 vier Tiefen in Folge derselbe Zug, spätestens ab Tiefe 16.
+const SETTLE_DEPTH = 12;
+const STABLE = 4;
+const SETTLE_ANYWAY = 16;
+// Am Ende der Suche bleibt der gezeigte Zug, wenn er höchstens so viel Gewinnchance kostet.
+const NEAR_EQUAL = 2.5;
 
 function fenKey(fen: string) {
   return fen.split(' ').slice(0, 4).join(' ');
@@ -181,6 +195,9 @@ export class Controller {
   private engineReady = false;
   private paused = false;
   private pieceSelectedAt = 0;
+  private cand: string | null = null;
+  private candSince = 0;
+  private onlyMove = false;
 
   state: State = {
     phase: 'connecting',
@@ -198,6 +215,7 @@ export class Controller {
     nps: 0,
     lines: [],
     best: null,
+    settled: false,
     bestSource: 'engine',
     piece: null,
     threat: null,
@@ -544,11 +562,29 @@ export class Controller {
     }
     const turn = this.state.turn;
     const maxDepth = DEPTH[settings.depth];
+    this.cand = null;
+    this.candSince = 0;
+    this.onlyMove = (this.game?.moves().length ?? 0) === 1;
+    if (this.state.settled) this.set({ settled: false });
     this.analysis.search({
       fen,
       multipv: settings.lines,
       depth: maxDepth,
       onInfo: (info) => this.onInfo(fen, turn, info),
+      onDone: (bm) => {
+        // Suche fertig: Stockfishs letztes Wort gilt – außer der gezeigte Zug ist praktisch gleich gut.
+        if (this.state.fen !== fen || !bm || this.state.settings.elo != null) return;
+        const m = moveFromUci(fen, bm);
+        if (!m) return;
+        const line = this.state.lines.find((l) => l.move.uci === bm);
+        const shown = this.state.best;
+        const own = shown && this.state.lines.find((l) => l.move.uci === shown.uci);
+        if (shown && own && line && winPct(line.score) - winPct(own.score) <= NEAR_EQUAL) {
+          this.set({ best: { ...shown, score: own.score }, settled: true });
+          return;
+        }
+        this.set({ best: { ...moveView(m), score: line?.score ?? this.state.best?.score }, settled: true });
+      },
     });
 
     // Gewählte Stärke: eigener Worker, Stockfishs eingebaute Elo-Begrenzung.
@@ -566,7 +602,7 @@ export class Controller {
           const m = moveFromUci(fen, bm);
           if (!m) return;
           const fromLines = this.state.lines.find((l) => l.move.uci === bm);
-          this.set({ best: { ...moveView(m), score: fromLines?.score } });
+          this.set({ best: { ...moveView(m), score: fromLines?.score }, settled: true });
         },
       });
     } else {
@@ -622,7 +658,7 @@ export class Controller {
         this.evalCache.set(key, { depth: info.depth, score: info.score, best: info.pv[0]! });
         if (this.evalCache.size > 3000) this.evalCache.clear();
       }
-      if (this.state.settings.elo == null) patch.best = { ...line.move, score: info.score };
+      if (this.state.settings.elo == null) Object.assign(patch, this.pickBest(line, lines));
       else if (this.state.best && this.state.best.uci === line.move.uci) patch.best = { ...this.state.best, score: info.score };
       // Verlauf: Gewinnchance für Weiß in dieser Stellung
       const graph = [...this.state.graph];
@@ -633,6 +669,43 @@ export class Controller {
     }
     this.set(patch);
     if (info.multipv === 1) this.refreshQuality();
+  }
+
+  /**
+   * Welcher Zug wird gezeigt, und steht er schon fest? Verhindert, dass die Anzeige
+   * bei jeder Rechentiefe zwischen zwei Zügen hin- und herspringt.
+   */
+  private pickBest(line: LineView, lines: LineView[]): Partial<State> {
+    const uci = line.move.uci;
+    const d = line.depth;
+    if (uci !== this.cand) {
+      this.cand = uci;
+      this.candSince = d;
+    }
+    const held = d - this.candSince + 1;
+    const mate = line.score.mate != null;
+    const shown = this.state.best;
+    let best: State['best'];
+    if (!shown) {
+      if (d < SHOW_DEPTH && !mate && !this.onlyMove) return {};
+      best = { ...line.move, score: line.score };
+    } else {
+      const own = lines.find((l) => l.move.uci === shown.uci);
+      // Steht der Zug schon fest, ersetzt ihn nur ein klar besserer – kein Wechsel zwischen Gleichwertigen.
+      const clearlyBetter = !own || winPct(line.score) - winPct(own.score) > NEAR_EQUAL;
+      if (shown.uci === uci || (held >= SWITCH && (!this.state.settled || clearlyBetter))) {
+        best = { ...line.move, score: line.score };
+      } else {
+        best = own ? { ...shown, score: own.score } : shown;
+      }
+    }
+    let settled = this.state.settled;
+    if (!settled) {
+      const heldShown = best!.uci === this.cand ? held : 0;
+      settled =
+        this.onlyMove || (mate && heldShown >= 2) || (d >= SETTLE_DEPTH && heldShown >= STABLE) || d >= SETTLE_ANYWAY;
+    }
+    return { best, settled };
   }
 
   /** Bewertet alle verfolgten Züge, sobald beide Stellungen tief genug gerechnet sind. */
@@ -719,10 +792,11 @@ export class Controller {
     }
 
     if (s.best) {
-      model.arrows.push({ from: s.best.from, to: s.best.to, kind: primary, weight: 1 });
-      model.focus.push({ square: s.best.to, kind: mine ? 'best' : 'opponent' });
+      // Vorläufig: blasser, gestrichelter Pfeil. Erst wenn der Zug feststeht: voller Pfeil + Sucherrahmen.
+      model.arrows.push({ from: s.best.from, to: s.best.to, kind: primary, weight: 1, pending: !s.settled });
+      if (s.settled) model.focus.push({ square: s.best.to, kind: mine ? 'best' : 'opponent' });
     }
-    if (s.settings.arrows === 'all' && mine) {
+    if (s.settings.arrows === 'all' && mine && s.settled) {
       s.lines.forEach((l) => {
         if (s.best && l.move.uci === s.best.uci) return;
         model.arrows.push({ from: l.move.from, to: l.move.to, kind: 'alt', weight: Math.max(0.25, 1 - l.rank * 0.25) });

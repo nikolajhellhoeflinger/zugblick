@@ -58,6 +58,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Keine Bildschirmfotos fremder Seiten ins Repo (`tools/bench/samples/` ist ignoriert).
 - Neue Abhängigkeiten mit fester Version.
 - Automatisch spielen: chess.com prüft selbst, was unter dem Mauszeiger liegt – alles über dem Brett blockiert den Zug. Unser Panel wird deshalb während eines Zugs klick-durchlässig (`PanelHost.passThrough`); fremde Flächen (Cookie-Banner) werden nie durchgeklickt.
+- Autospielen pausiert im Hintergrund-Tab nicht und überlebt ein Neuladen der Seite: Das Inhalts-Skript merkt es sich in `sessionStorage` (`zb:autoplay`), fortgesetzt wird nur bei einem Lebenszeichen jünger als 60 s. „Neues Spiel“ sucht nach Partieende so lange weiter, bis der Knopf da ist (Revanche/Rematch zuerst) – Knöpfe, die eine neue Partie gegen Menschen suchen, werden nie gedrückt.
 - Chess Bot 1 (`site/bot.ts`) läuft auf der Website und ist seit 24.11.2026 zusätzlich eigene Stärke-Stufe im Panel (`panel/ui/BotIcon.tsx`, `settings.bot`).
 
 **Prüfen:** Änderungen am Panel im echten Browser ansehen (hell, dunkel), Änderungen an der Bilderkennung mit `pnpm bench` messen (Ausgangswert: 99,8 % der Felder über drei Brettgrößen).

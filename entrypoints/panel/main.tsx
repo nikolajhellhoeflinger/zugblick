@@ -19,6 +19,7 @@ function send(msg: ToContent) {
 controller.onOverlay((overlay) => send({ type: 'overlay', overlay }));
 controller.onPlay((m) => send({ type: 'play', ...m }));
 controller.onNewGame(() => send({ type: 'newgame' }));
+controller.onAutoplay((on, until) => send({ type: 'autoplay', on, until }));
 
 // Der Schlüssel kommt über das Adress-Fragment, das nur das Inhalts-Skript kennt.
 const nonce = location.hash.slice(1);
@@ -36,6 +37,7 @@ window.addEventListener('message', (e: MessageEvent) => {
     else if (msg.type === 'host') controller.setHost(msg.host, msg.path);
     else if (msg.type === 'vision') controller.setVision(msg.state);
     else if (msg.type === 'move-result') controller.moveResult(msg.ok, msg.stale);
+    else if (msg.type === 'resume') controller.resumeAutoplay(msg.until);
   };
   port.postMessage({ type: 'ready' } satisfies ToContent);
   for (const m of outbox.splice(0)) port.postMessage(m);

@@ -59,13 +59,62 @@ export default defineContentScript({
       return true;
     };
 
-    /** „Neues Spiel“-Knopf der Seite finden und drücken (Text je nach Seite, deutsch oder englisch). */
-    const NEW_GAME = /^(neues spiel|neue partie|new game|rematch|revanche)$/i;
+    /** Knöpfe für eine neue Partie, in dieser Reihenfolge gesucht (deutsch und englisch). Revanche zuerst:
+     *  gleicher Gegner, gleiche Einstellungen, startet sofort. Nur sichtbare, nicht gesperrte Knöpfe. */
+    const NEW_GAME = [
+      /^(revanche|rematch)$/i,
+      /^(neue partie|neues spiel|new game|nochmal spielen|noch einmal spielen|erneut spielen|play again)$/i,
+    ];
     const clickNewGame = () => {
-      const btn = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].find(
-        (el) => el.getClientRects().length > 0 && NEW_GAME.test((el.textContent ?? '').replace(/\s+/g, ' ').trim()),
+      const label = (el: HTMLElement) =>
+        (el.textContent ?? '').replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label')?.trim() || el.title.trim();
+      const all = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].filter(
+        (el) =>
+          el.getClientRects().length > 0 &&
+          !(el as HTMLButtonElement).disabled &&
+          el.getAttribute('aria-disabled') !== 'true' &&
+          !el.closest('zugblick-panel'),
       );
-      btn?.click();
+      const find = (re: RegExp) => all.find((el) => re.test(label(el)));
+      // 1. Partie vorbei: Revanche.
+      const rematch = find(NEW_GAME[0]!);
+      if (rematch) return rematch.click();
+      // 2. Nach Neuladen bietet die Seite „Weiter“ (laufende Partie) neben „Neue Partie“ an: weiterspielen.
+      const fresh = find(NEW_GAME[1]!);
+      let resume: HTMLElement | undefined;
+      for (let box = fresh?.parentElement, i = 0; box && i < 5 && !resume; box = box.parentElement, i++) {
+        const scope = box;
+        resume = all.find((el) => scope.contains(el) && /^(weiter|fortsetzen|continue|resume)$/i.test(label(el)));
+      }
+      if (resume) return resume.click();
+      // 3. Neue Partie.
+      if (fresh) return fresh.click();
+      // Zurück in der Bot-Auswahl (z. B. nach Neuladen): dort heißt der Knopf „Spielen“. Nur auf der
+      // Computer-Seite – anderswo sucht „Spielen“ einen menschlichen Gegner.
+      if (/\/play\/computer/.test(location.pathname)) {
+        all.find((el) => el.tagName === 'BUTTON' && /^(spielen|play|starten|start)$/i.test(label(el)))?.click();
+      }
+    };
+
+    /** Autospielen über ein Neuladen der Seite retten (nur dieser Tab, nur wenn es eben noch lief). */
+    const AUTOPLAY_KEY = 'zb:autoplay';
+    const rememberAutoplay = (on: boolean, until: number) => {
+      try {
+        if (on) sessionStorage.setItem(AUTOPLAY_KEY, JSON.stringify({ until, at: Date.now() }));
+        else sessionStorage.removeItem(AUTOPLAY_KEY);
+      } catch {
+        /* ohne Speicher: kein Fortsetzen */
+      }
+    };
+    const resumeAutoplay = () => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(AUTOPLAY_KEY) ?? 'null') as { until: number; at: number } | null;
+        if (!saved || Date.now() - saved.at > 60_000) return;
+        if (saved.until && Date.now() >= saved.until) return;
+        host?.send({ type: 'resume', until: saved.until });
+      } catch {
+        /* nichts */
+      }
     };
 
     // Ein Zug nach dem anderen; während einer läuft, kommt kein zweiter dazu.
@@ -174,6 +223,8 @@ export default defineContentScript({
         overlay?.place(rect());
       } else if (msg.type === 'newgame') {
         clickNewGame();
+      } else if (msg.type === 'autoplay') {
+        rememberAutoplay(msg.on, msg.until);
       } else if (msg.type === 'play') {
         void playMove(msg);
       } else if (msg.type === 'close') {
@@ -222,6 +273,7 @@ export default defineContentScript({
       overlay = new Overlay();
       host = new PanelHost(onPanelMessage, rect);
       host.send({ type: 'host', host: location.hostname, path: location.pathname });
+      resumeAutoplay();
       lastKey = '';
       readNow();
     }
@@ -229,6 +281,7 @@ export default defineContentScript({
     function deactivate() {
       if (!active) return;
       active = false;
+      rememberAutoplay(false, 0);
       observer?.disconnect();
       observer = null;
       vision?.stop();

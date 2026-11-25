@@ -45,7 +45,9 @@ export type ToPanel =
   | { type: 'select'; square: string | null }
   | { type: 'host'; host: string; path: string }
   | { type: 'vision'; state: VisionState }
-  | { type: 'move-result'; ok: boolean; stale: boolean };
+  | { type: 'move-result'; ok: boolean; stale: boolean }
+  /** Nach Neuladen: Autospielen lief eben noch (until = Spielzeit-Ende, 0 = unbegrenzt). */
+  | { type: 'resume'; until: number };
 
 export type VisionState =
   | { phase: 'off' }
@@ -62,4 +64,5 @@ export type ToContent =
   | { type: 'close' }
   | { type: 'play'; from: string; to: string; promotion: boolean; before: string; after: string }
   | { type: 'newgame' }
+  | { type: 'autoplay'; on: boolean; until: number }
   | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

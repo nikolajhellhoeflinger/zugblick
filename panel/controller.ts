@@ -217,8 +217,10 @@ export class Controller {
   private staleCount = 0;
   private newGameListener: (() => void) | null = null;
   private sessionEnd = 0;
-  private newGameFor = '';
-  private newGameTimer = 0;
+  private autoplayListener: ((on: boolean, until: number) => void) | null = null;
+  private lastBeat = 0;
+  /** Tab im Hintergrund. Pausiert nur, wenn nicht automatisch gespielt wird. */
+  private hidden = false;
 
   state: State = {
     phase: 'connecting',
@@ -265,9 +267,8 @@ export class Controller {
     });
     window.setInterval(() => this.checkSession(), 1000);
     document.addEventListener('visibilitychange', () => {
-      this.paused = document.visibilityState === 'hidden';
-      if (this.paused) this.stopAll();
-      else this.analyze();
+      this.hidden = document.visibilityState === 'hidden';
+      this.applyPause();
     });
   }
 
@@ -289,7 +290,28 @@ export class Controller {
     this.newGameListener = fn;
   }
 
-  setAutoplay(on: boolean) {
+  /** Autospielen an/aus (mit Spielzeit-Ende) – das Inhalts-Skript merkt es sich über ein Neuladen hinweg. */
+  onAutoplay(fn: (on: boolean, until: number) => void) {
+    this.autoplayListener = fn;
+  }
+
+  /** Im Hintergrund wird nur pausiert, wenn nicht automatisch gespielt wird – sonst spielt es weiter. */
+  private applyPause() {
+    const pause = this.hidden && !this.state.autoplay;
+    if (pause === this.paused) return;
+    this.paused = pause;
+    if (pause) this.stopAll();
+    else this.analyze();
+  }
+
+  /** Seite wurde neu geladen, während automatisch gespielt wurde: weiter, mit derselben Spielzeit-Grenze. */
+  resumeAutoplay(until: number) {
+    if (this.state.autoplay) return;
+    if (until && Date.now() >= until) return;
+    this.setAutoplay(true, until);
+  }
+
+  setAutoplay(on: boolean, until?: number) {
     this.playedKey = '';
     this.inFlight = 0;
     this.failures = 0;
@@ -298,10 +320,12 @@ export class Controller {
     this.lastChange = Date.now();
     this.clearPlayTimer();
     const mins = this.state.settings.sessionMinutes;
-    this.sessionEnd = on && mins > 0 ? Date.now() + mins * 60_000 : 0;
-    this.newGameFor = '';
-    window.clearTimeout(this.newGameTimer);
+    this.sessionEnd = on ? (until ?? (mins > 0 ? Date.now() + mins * 60_000 : 0)) : 0;
+    this.lastIdleProbe = 0;
+    this.lastBeat = Date.now();
+    this.autoplayListener?.(on, this.sessionEnd);
     this.set({ autoplay: on });
+    this.applyPause();
   }
 
   private clearPlayTimer() {
@@ -327,9 +351,10 @@ export class Controller {
       if (++this.staleCount >= 10) return this.setAutoplay(false);
     } else if (++this.failures >= 3) {
       // Zug geht nicht durch – oft ist die Partie still vorbei (Remis, Aufgabe). Dann neue Partie versuchen.
-      if (this.state.settings.autoNewGame && this.rescues < 2) {
+      if (this.state.settings.autoNewGame && this.rescues < 6) {
         this.rescues++;
         this.failures = 0;
+        this.playedKey = ''; // dieselbe Stellung (z. B. Grundstellung der neuen Partie) darf wieder gespielt werden
         this.newGameListener?.();
         return;
       }
@@ -340,52 +365,35 @@ export class Controller {
     this.autoplayTick(true);
   }
 
-  /** Im Sekundentakt: Spielzeit abgelaufen? Klick ohne Rückmeldung? */
+  /** Im Sekundentakt: Spielzeit abgelaufen? Klick ohne Rückmeldung? Partie vorbei? */
   private checkSession() {
     const s = this.state;
     if (!s.autoplay) return;
-    if (this.sessionEnd && Date.now() >= this.sessionEnd) return this.setAutoplay(false);
+    const now = Date.now();
+    if (this.sessionEnd && now >= this.sessionEnd) return this.setAutoplay(false);
+    // Lebenszeichen ans Inhalts-Skript: Nur ein frisches „an“ wird nach einem Neuladen fortgesetzt.
+    if (now - this.lastBeat > 10_000) {
+      this.lastBeat = now;
+      this.autoplayListener?.(true, this.sessionEnd);
+    }
     // Keine Rückmeldung (z. B. Seite neu geladen): als Fehlschlag zählen, nicht hängen bleiben.
-    if (this.inFlight && Date.now() - this.inFlight > 15000) this.moveResult(false);
+    if (this.inFlight && now - this.inFlight > 15000) this.moveResult(false);
     // Falls ein Timer verloren ging: neu anstoßen.
     if (!this.inFlight && !this.playTimer) this.autoplayTick();
-    // 30 s keine Änderung, obwohl der Gegner dran ist: Partie vermutlich vorbei → Knopf für neue Partie suchen
-    // (das Inhalts-Skript klickt nur, wenn ein passender Knopf sichtbar ist).
-    if (
-      s.settings.autoNewGame &&
-      s.phase === 'live' &&
-      s.turn !== s.orientation &&
-      Date.now() - this.lastChange > 30_000 &&
-      Date.now() - this.lastIdleProbe > 15_000
-    ) {
-      this.lastIdleProbe = Date.now();
+    // Neue Partie: Nach Matt/Patt alle 3 s nach dem Knopf sehen, so lange, bis er da ist – er kommt oft erst
+    // nach Endanimation, Werbung oder Bewertung. Ohne erkanntes Ende (Aufgabe, Zeit, Remis): nach 25 s
+    // Stillstand alle 8 s. Das Inhalts-Skript klickt nur, wenn ein passender Knopf sichtbar ist.
+    if (!s.settings.autoNewGame || this.inFlight) return;
+    const quiet = now - this.lastChange;
+    const due =
+      s.phase === 'gameover'
+        ? quiet > 2000 && now - this.lastIdleProbe > 3000
+        : quiet > 25_000 && now - this.lastIdleProbe > 8000;
+    if (due) {
+      this.lastIdleProbe = now;
+      this.playedKey = '';
       this.newGameListener?.();
     }
-  }
-
-  /** Partie vorbei + Autospielen + „Neues Spiel automatisch“ → nach kurzer Pause klicken, notfalls wiederholt. */
-  private newGameTick() {
-    const s = this.state;
-    const over = s.autoplay && s.settings.autoNewGame && s.phase === 'gameover' && !!s.fen;
-    if (!over) {
-      window.clearTimeout(this.newGameTimer);
-      this.newGameTimer = 0;
-      this.newGameFor = '';
-      return;
-    }
-    const key = fenKey(s.fen!);
-    if (this.newGameFor === key) return;
-    this.newGameFor = key;
-    window.clearTimeout(this.newGameTimer);
-    const attempt = (n: number) => {
-      this.newGameTimer = window.setTimeout(() => {
-        const now = this.state;
-        if (!now.autoplay || !now.settings.autoNewGame || now.phase !== 'gameover') return;
-        this.newGameListener?.();
-        if (n < 4) attempt(n + 1); // Knopf erscheint oft erst nach der Endanimation
-      }, n === 0 ? 1500 + Math.random() * 1500 : 2500);
-    };
-    attempt(0);
   }
 
   /** Bedenkzeit nach den Einstellungen von/bis, gleichmäßig oder unregelmäßig (meist kurz, manchmal lang). */
@@ -462,7 +470,6 @@ export class Controller {
   private set(patch: Partial<State>) {
     if (patch.fen !== undefined && patch.fen !== this.state.fen) this.lastChange = Date.now();
     this.state = { ...this.state, ...patch };
-    this.newGameTick();
     this.autoplayTick();
     if (this.emitQueued) return;
     this.emitQueued = true;

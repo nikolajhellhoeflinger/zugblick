@@ -5,6 +5,8 @@ import { executeMove } from '@/content/mover';
 import { Vision } from '@/content/vision';
 import { squareIndex, squareName, type Color } from '@/lib/board';
 import type { BoardRead, ToContent } from '@/lib/protocol';
+import { onToggle, store } from '@/platform/current';
+import { defineContentScript } from 'wxt/utils/define-content-script';
 
 /** Automatisch öffnen nur bei Brettern ab dieser Kantenlänge (keine Vorschaubilder). */
 const AUTO_MIN = 280;
@@ -336,22 +338,19 @@ export default defineContentScript({
       if (!active && autoStart && !dismissed && pickAdapter(AUTO_MIN)) activate();
     }, 700);
 
-    browser.runtime.onMessage.addListener((msg: unknown) => {
-      if ((msg as { type?: string })?.type === 'zb-toggle') {
-        if (active) {
-          dismissed = true;
-          deactivate();
-        } else {
-          dismissed = false;
-          activate();
-        }
+    onToggle(() => {
+      if (active) {
+        dismissed = true;
+        deactivate();
+      } else {
+        dismissed = false;
+        activate();
       }
     });
 
-    void browser.storage.local
-      .get('zb:settings')
-      .then((got) => {
-        const s = got['zb:settings'] as { autoStart?: boolean } | undefined;
+    void store
+      .get<{ autoStart?: boolean }>('zb:settings')
+      .then((s) => {
         autoStart = s?.autoStart ?? true;
         if (autoStart && pickAdapter(AUTO_MIN)) activate();
       })
@@ -359,8 +358,7 @@ export default defineContentScript({
         if (pickAdapter(AUTO_MIN)) activate();
       });
 
-    browser.storage.onChanged.addListener((changes) => {
-      const next = changes['zb:settings']?.newValue as { autoStart?: boolean } | undefined;
+    store.onChange<{ autoStart?: boolean }>('zb:settings', (next) => {
       if (next) autoStart = next.autoStart ?? true;
     });
   },

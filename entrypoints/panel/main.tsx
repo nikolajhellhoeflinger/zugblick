@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from '@/panel/ui/App';
 import { Controller } from '@/panel/controller';
 import type { ToContent, ToPanel } from '@/lib/protocol';
+import { panelNonce } from '@/platform/current';
 import './style.css';
 
 const controller = new Controller();
@@ -22,7 +23,7 @@ controller.onNewGame(() => send({ type: 'newgame' }));
 controller.onAutoplay((on, until) => send({ type: 'autoplay', on, until }));
 
 // Der Schlüssel kommt über das Adress-Fragment, das nur das Inhalts-Skript kennt.
-const nonce = location.hash.slice(1);
+const nonce = panelNonce();
 
 window.addEventListener('message', (e: MessageEvent) => {
   const data = e.data as { zb?: string; nonce?: string } | undefined;

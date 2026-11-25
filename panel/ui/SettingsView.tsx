@@ -1,3 +1,4 @@
+import { KIND } from '@/platform/current';
 import type { ReactNode } from 'react';
 import { ScanLine } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
@@ -187,6 +188,7 @@ export function SettingsView({
         </Row>
       </Group>
 
+      {KIND === 'extension' && (
       <Group title="Andere Seiten">
         <div className="px-4 py-2">
           <button
@@ -208,6 +210,7 @@ export function SettingsView({
           )}
         </div>
       </Group>
+      )}
 
       <div className="flex items-center justify-between border-t border-line px-4 pt-2.5 text-[11px] text-ink-3">
         <span>Ein/aus: Alt+Shift+Z</span>

@@ -1,6 +1,6 @@
 {
   "name": "zugblick",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "private": true,
   "description": "Stockfish in Echtzeit auf jeder Schachseite – Browser-Erweiterung für Chrome, Edge und Brave.",
   "license": "GPL-3.0-or-later",
@@ -10,6 +10,7 @@
     "build": "wxt build",
     "zip": "wxt zip",
     "compile": "tsc --noEmit",
+    "userscript": "node scripts/build-userscript.mjs",
     "postinstall": "wxt prepare",
     "bench:collect": "node tools/bench/collect.mjs",
     "bench": "node tools/bundle-recognize.mjs && node tools/bench/run.mjs",

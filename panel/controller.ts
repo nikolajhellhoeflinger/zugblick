@@ -1,5 +1,6 @@
 // Das Gehirn des Panels: verfolgt die Stellung, steuert die Stockfish-Worker
 // und baut daraus Anzeige-Zustand und Brett-Overlay.
+import { engineUrl } from '@/platform/current';
 import type { Chess, Move } from 'chess.js';
 import {
   fenToPlacement,
@@ -93,7 +94,7 @@ const QUALITY: Record<Tone, { label: string; glyph: string }> = {
   blunder: { label: 'Patzer', glyph: '??' },
 };
 
-const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js';
+const ENGINE_URL = engineUrl();
 
 // Unter dieser Tiefe springt der beste Zug ständig – erst ab hier wird er gezeigt.
 const SHOW_DEPTH = 10;

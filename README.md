@@ -26,7 +26,7 @@
 
 ## Installieren
 
-Läuft in allen Chromium-Browsern: Chrome, Edge, Brave, Arc, Opera – auf Windows und macOS. Firefox und Safari werden noch nicht unterstützt.
+Läuft in allen Chromium-Browsern: Chrome, Edge, Brave, Arc, Opera – auf Windows und macOS. In **Safari** (Mac, auch iPhone) läuft Zugblick auf chess.com über die kostenlose App „Userscripts“ – siehe [Safari](#safari).
 
 ### Am schnellsten: mit Claude
 
@@ -65,6 +65,15 @@ Das Skript lädt die fertige Erweiterung nach `~/Zugblick` und öffnet die Erwei
 3. **Entwicklermodus** einschalten, **Entpackte Erweiterung laden**, den entpackten Ordner wählen.
 
 Tipp: Über das Puzzle-Symbol in der Browserleiste lässt sich Zugblick anheften.
+
+### Safari
+
+Ohne Entwicklermodus und ohne Apple-Konto, über die kostenlose Open-Source-App **Userscripts** aus dem App Store. Läuft auf chess.com; die Bilderkennung gibt es nur in der Chrome-Erweiterung.
+
+1. **Userscripts** aus dem App Store laden und einmal öffnen (dabei einen Ordner für Skripte wählen).
+2. Safari → Einstellungen → Erweiterungen → **Userscripts** einschalten und auf allen Websites erlauben.
+3. In Safari diesen Link öffnen: [zugblick.user.js](https://raw.githubusercontent.com/nikolajhellhoeflinger/zugblick/main/userscript/zugblick.user.js) – dann in der Safari-Leiste auf das Userscripts-Symbol und **Installieren**.
+4. chess.com öffnen – das Panel erscheint von selbst. Updates holt Userscripts automatisch.
 
 ## Bedienung
 

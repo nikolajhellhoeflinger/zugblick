@@ -1,5 +1,6 @@
 // Bilderkennung für Seiten ohne lesbares Brett-HTML (Canvas, Videos, Bilder, unbekannte Apps).
 // Fotografiert den sichtbaren Tab, schneidet das Brett aus und erkennt die Stellung.
+import { captureTab, store } from '@/platform/current';
 import { placementToFen, squareName, type Placement } from '@/lib/board';
 import type { BoardRead, VisionState } from '@/lib/protocol';
 import type { ContentScriptContext } from 'wxt/utils/content-script-context';
@@ -26,7 +27,7 @@ function setStyles(el: HTMLElement, styles: Record<string, string>) {
 }
 
 async function capture(): Promise<ImageBitmap> {
-  const res = (await browser.runtime.sendMessage({ type: 'zb-capture' })) as { dataUrl?: string; error?: string };
+  const res = await captureTab();
   if (!res?.dataUrl) throw new Error(res?.error || 'Bildschirmfoto nicht möglich');
   // data:-URL selbst dekodieren – fetch() könnte an der CSP der Seite scheitern.
   const b64 = res.dataUrl.slice(res.dataUrl.indexOf(',') + 1);
@@ -62,10 +63,9 @@ export class Vision {
     private overlay: { hold: () => void; hide: () => void; release: () => void; mask: (size: number) => Uint8Array | null },
     private panelRect: () => DOMRect | null,
   ) {
-    void browser.storage.local
-      .get(STORE)
-      .then((got) => {
-        const t = got[STORE] as TemplateSet | undefined;
+    void store
+      .get<TemplateSet>(STORE)
+      .then((t) => {
         if (t?.shapes?.length) this.learned = t;
       })
       .catch(() => {});
@@ -169,7 +169,7 @@ export class Vision {
 
   forget() {
     this.learned = null;
-    void browser.storage.local.remove(STORE).catch(() => {});
+    void store.remove(STORE).catch(() => {});
     if (this.active) this.onState({ phase: 'scanning', learned: false });
   }
 
@@ -398,7 +398,7 @@ export class Vision {
       const scan = classify(raw, this.learned ? [this.learned] : BUILTIN, clean ? null : this.prior);
       if (scan.start && !this.learned) {
         this.learned = learn(raw, scan.start);
-        void browser.storage.local.set({ [STORE]: this.learned }).catch(() => {});
+        void store.set(STORE, this.learned).catch(() => {});
         this.onState({ phase: 'scanning', learned: true });
       }
       const placement = placementToFen(scan.placement as Placement);

@@ -1,6 +1,7 @@
 // Bettet das Panel (eine Erweiterungsseite) als schwebendes Fenster in die Seite ein
 // und hält einen privaten Nachrichtenkanal dorthin offen.
 import type { ToContent, ToPanel } from '@/lib/protocol';
+import { loadPanel, store } from '@/platform/current';
 
 const MARGIN = 16;
 
@@ -34,7 +35,7 @@ export class PanelHost {
     // Shadow-DOM – Seiten-Skripte kommen an beides nicht heran.
     const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
     const frame = document.createElement('iframe');
-    frame.src = `${browser.runtime.getURL('/panel.html')}#${nonce}`;
+    const origin = loadPanel(frame, nonce);
     frame.title = 'Zugblick';
     frame.setAttribute('allow', '');
     setStyles(frame, {
@@ -68,7 +69,6 @@ export class PanelHost {
 
     const channel = new MessageChannel();
     frame.addEventListener('load', () => {
-      const origin = new URL(browser.runtime.getURL('/')).origin;
       frame.contentWindow?.postMessage({ zb: 'init', nonce }, origin, [channel.port2]);
     });
     channel.port1.onmessage = (e: MessageEvent<ToContent>) => this.handle(e.data);
@@ -138,8 +138,7 @@ export class PanelHost {
 
   private async restore() {
     try {
-      const got = await browser.storage.local.get(this.storageKey);
-      const saved = got[this.storageKey] as Pos | undefined;
+      const saved = await store.get<Pos>(this.storageKey);
       if (saved && typeof saved.x === 'number') this.pos = saved;
     } catch {
       /* ohne Speicher: Standardplatz */
@@ -194,7 +193,7 @@ export class PanelHost {
       const left = parseFloat(this.frame.style.left) || 0;
       const top = parseFloat(this.frame.style.top) || 0;
       this.pos = { x: left, y: top };
-      void browser.storage.local.set({ [this.storageKey]: this.pos }).catch(() => {});
+      void store.set(this.storageKey, this.pos).catch(() => {});
     }
   }
 

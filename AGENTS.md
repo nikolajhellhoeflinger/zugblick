@@ -30,7 +30,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 
 ## B) Am Code arbeiten
 
-**Befehle:** `pnpm install` · `pnpm dev` (Chrome mit Live-Neuladen) · `pnpm build` (→ `.output/chrome-mv3`) · `pnpm zip` · `pnpm compile` (Typen) · `pnpm bench` (Messbank Bilderkennung) · `pnpm site:dev` / `pnpm site:build` (Website).
+**Befehle:** `pnpm install` · `pnpm dev` (Chrome mit Live-Neuladen) · `pnpm build` (→ `.output/chrome-mv3`) · `pnpm zip` · `pnpm userscript` (→ `userscript/zugblick.user.js`, Safari/iPhone) · `pnpm compile` (Typen) · `pnpm bench` (Messbank Bilderkennung) · `pnpm site:dev` / `pnpm site:build` (Website).
 
 **Wo was liegt**
 
@@ -44,6 +44,8 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 | `content/panel-host.ts` | bettet das Panel als iframe ein, privater Kanal mit Einmal-Schlüssel |
 | `entrypoints/panel/` + `panel/` | Panel (React): `controller.ts` verfolgt die Stellung und steuert Stockfish, `engine.ts` ist die UCI-Hülle, `ui/` die Oberfläche |
 | `lib/protocol.ts` | alle Nachrichten zwischen Inhalts-Skript und Panel |
+| `platform/` | was sich zwischen Chrome-Erweiterung (`extension.ts`) und Userscript (`userscript.ts`) unterscheidet: Speicher, Dateien, Stockfish-Adresse, Panel-Rahmen, Tastenkürzel. Geteilter Code importiert nur `@/platform/current` |
+| `userscript/` | Userscript-Einstieg (`main.ts`) und das gebaute Skript `zugblick.user.js` (wird mit committet – installiert wird per raw-Link) |
 | `public/stockfish/` | Stockfish 19 lite single-threaded (stockfish.js 19.0.1) |
 | `content/vision-builtin.json` | Umriss-Vorlagen, erzeugt mit `pnpm templates` aus `tools/piecesets/` |
 | `site/` | Website Chess Bot 1 (eigener Vite-Bau, GitHub Pages über `.github/workflows/site.yml`): `bot.ts` = Chess Bot 1, `Board.tsx` = chessground |
@@ -59,6 +61,8 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Neue Abhängigkeiten mit fester Version.
 - Automatisch spielen: chess.com prüft selbst, was unter dem Mauszeiger liegt – alles über dem Brett blockiert den Zug. Unser Panel wird deshalb während eines Zugs klick-durchlässig (`PanelHost.passThrough`); fremde Flächen (Cookie-Banner) werden nie durchgeklickt.
 - Autospielen pausiert im Hintergrund-Tab nicht und überlebt ein Neuladen der Seite: Das Inhalts-Skript merkt es sich in `sessionStorage` (`zb:autoplay`), fortgesetzt wird nur bei einem Lebenszeichen jünger als 60 s. „Neues Spiel“ sucht nach Partieende so lange weiter, bis der Knopf da ist (Revanche/Rematch zuerst) – Knöpfe, die eine neue Partie gegen Menschen suchen, werden nie gedrückt.
+- Browser-Schnittstellen (`browser.*`) nie direkt im geteilten Code – nur über `platform/current.ts`, sonst bricht das Userscript.
+- Userscript: Panel liegt als `srcdoc`-Rahmen in der Seite, Stockfish kommt von jsDelivr mit festem Git-Tag `v1.0.11` (`platform/userscript.ts`) – diesen Tag nie löschen. Nach Änderungen `pnpm userscript` laufen lassen und `userscript/zugblick.user.js` mit committen. Nur chess.com freigegeben (andere Seiten sperren eingebettete Skripte per CSP).
 - Chess Bot 1 (`site/bot.ts`) läuft auf der Website und ist seit 24.11.2026 zusätzlich eigene Stärke-Stufe im Panel (`panel/ui/BotIcon.tsx`, `settings.bot`).
 
 **Prüfen:** Änderungen am Panel im echten Browser ansehen (hell, dunkel), Änderungen an der Bilderkennung mit `pnpm bench` messen (Ausgangswert: 99,8 % der Felder über drei Brettgrößen).

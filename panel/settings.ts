@@ -1,3 +1,5 @@
+import { store } from '@/platform/current';
+
 export interface Settings {
   /** null = volle Stockfish-Stärke. */
   elo: number | null;
@@ -51,13 +53,12 @@ const KEY = 'zb:settings';
 
 export async function loadSettings(): Promise<Settings> {
   try {
-    const got = await browser.storage.local.get(KEY);
-    return { ...DEFAULTS, ...((got[KEY] as Partial<Settings>) ?? {}) };
+    return { ...DEFAULTS, ...((await store.get<Partial<Settings>>(KEY)) ?? {}) };
   } catch {
     return { ...DEFAULTS };
   }
 }
 
 export function saveSettings(s: Settings) {
-  void browser.storage.local.set({ [KEY]: s }).catch(() => {});
+  void store.set(KEY, s).catch(() => {});
 }

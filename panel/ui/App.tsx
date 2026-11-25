@@ -28,7 +28,16 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
 
   // Hell/Dunkel: Einstellung oder Systemvorgabe.
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    // Im Userscript liegt das Panel auf derselben Herkunft wie die Seite: deren Farbwahl gilt
+    // (Safari meldet sie im eingebetteten Rahmen nicht zuverlässig). Sonst die eigene.
+    const mq = (() => {
+      try {
+        if (window.parent !== window) return window.parent.matchMedia('(prefers-color-scheme: dark)');
+      } catch {
+        /* fremde Herkunft (Erweiterung) */
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)');
+    })();
     const apply = () => {
       const dark = settings.theme === 'dark' || (settings.theme === 'auto' && mq.matches);
       document.documentElement.classList.toggle('dark', dark);

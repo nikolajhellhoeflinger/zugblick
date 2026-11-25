@@ -1,3 +1,4 @@
+import { KIND } from '@/platform/current';
 import { ArrowLeftRight, ScanLine, LoaderCircle, Flag, CircleAlert, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ToContent } from '@/lib/protocol';
@@ -111,7 +112,7 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
       <Message icon={busy ? <LoaderCircle className="animate-spin" /> : <ScanLine />} title={title}>
         {v.phase === 'error' && <p className="mt-1 text-[12.5px] text-threat">{v.message}</p>}
         {v.phase === 'marking' && <p className="mt-1 text-[12.5px] text-ink-3">Esc bricht ab.</p>}
-        {(v.phase === 'off' || v.phase === 'error') && (
+        {KIND === 'extension' && (v.phase === 'off' || v.phase === 'error') && (
           <Button
             size="sm"
             className="mt-3 h-8 rounded-md px-3 text-[12.5px] font-[650]"

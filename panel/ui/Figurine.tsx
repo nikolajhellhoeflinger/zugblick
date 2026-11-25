@@ -1,6 +1,7 @@
+import { assetUrl } from '@/platform/current';
 import { cn } from '@/lib/utils';
 
-const PIECE_URL = (code: string) => browser.runtime.getURL(`/pieces/${code}.svg` as '/pieces/wK.svg');
+const PIECE_URL = (code: string) => assetUrl(`/pieces/${code}.svg`);
 
 /**
  * Figur als ausgefüllte Silhouette in Textfarbe (wie in Schachbüchern):

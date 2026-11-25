@@ -163,6 +163,7 @@ export class Overlay {
   private arrowsLayer: SVGGElement;
   private focusLayer: SVGGElement;
   private badgeLayer: SVGGElement;
+  private arrowsHtml = '';
   private focusKey = '';
   private badgeKey = '';
   private model: OverlayModel | null = null;
@@ -256,7 +257,12 @@ export class Overlay {
       .filter((a) => squareIndex(a.from) >= 0 && squareIndex(a.to) >= 0 && a.from !== a.to && a.kind in COLORS)
       .sort((a, b) => (a.kind === 'alt' ? 0 : 1) - (b.kind === 'alt' ? 0 : 1));
     this.drawn = ordered;
-    this.arrowsLayer.innerHTML = ordered.map((a) => arrowSvg(a, o, s)).join('');
+    // Nur neu zeichnen, wenn sich wirklich etwas geändert hat – Stockfish meldet viele Male pro Sekunde.
+    const html = ordered.map((a) => arrowSvg(a, o, s)).join('');
+    if (html !== this.arrowsHtml) {
+      this.arrowsHtml = html;
+      this.arrowsLayer.innerHTML = html;
+    }
     const fKey = model.focus.map((f) => f.square + f.kind).join('|') + s;
     if (fKey !== this.focusKey) {
       this.focusKey = fKey;

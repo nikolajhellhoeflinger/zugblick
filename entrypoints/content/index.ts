@@ -62,13 +62,25 @@ export default defineContentScript({
     /** Knöpfe für eine neue Partie, in dieser Reihenfolge gesucht (deutsch und englisch). Revanche zuerst:
      *  gleicher Gegner, gleiche Einstellungen, startet sofort. Nur sichtbare, nicht gesperrte Knöpfe. */
     const NEW_GAME = [
-      /^(revanche|rematch)$/i,
-      /^(neue partie|neues spiel|new game|nochmal spielen|noch einmal spielen|erneut spielen|play again)$/i,
+      /^(revanche|rematch)\b/i,
+      /^(neue partie|neues spiel|new game|nochmal spielen|noch einmal spielen|erneut spielen|play again)\b/i,
     ];
+    /** Alle Knöpfe der Seite – auch in eingekapselten Bausteinen (offene Shadow-Roots). */
+    const allButtons = (): HTMLElement[] => {
+      const out: HTMLElement[] = [];
+      const walk = (root: Document | ShadowRoot, depth: number) => {
+        out.push(...root.querySelectorAll<HTMLElement>('button, a, [role="button"]'));
+        if (depth > 4) return;
+        for (const el of root.querySelectorAll<HTMLElement>('*')) if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
+      };
+      walk(document, 0);
+      return out;
+    };
     const clickNewGame = () => {
+      // Sichtbarer Text zuerst (ohne versteckte Hinweise), sonst Beschriftung für Screenreader.
       const label = (el: HTMLElement) =>
-        (el.textContent ?? '').replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label')?.trim() || el.title.trim();
-      const all = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].filter(
+        (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label')?.trim() || el.title.trim();
+      const all = allButtons().filter(
         (el) =>
           el.getClientRects().length > 0 &&
           !(el as HTMLButtonElement).disabled &&

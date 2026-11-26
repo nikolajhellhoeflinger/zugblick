@@ -64,5 +64,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Browser-Schnittstellen (`browser.*`) nie direkt im geteilten Code – nur über `platform/current.ts`, sonst bricht das Userscript.
 - Userscript: Panel liegt als `srcdoc`-Rahmen in der Seite, Stockfish kommt von jsDelivr mit festem Git-Tag `v1.0.11` (`platform/userscript.ts`) – diesen Tag nie löschen. Nach Änderungen `pnpm userscript` laufen lassen und `userscript/zugblick.user.js` mit committen. Nur chess.com freigegeben (andere Seiten sperren eingebettete Skripte per CSP).
 - Chess Bot 1 (`site/bot.ts`) läuft auf der Website und ist seit 24.11.2026 zusätzlich eigene Stärke-Stufe im Panel (`panel/ui/BotIcon.tsx`, `settings.bot`).
+- Chess Bot 1 spielt seit 1.0.13 angepasst: Ziel-Genauigkeit = Gegner + 3–5 (je Partie ausgelost, `GAP_MIN`/`GAP_MAX`), nie unter `FLOOR` 80; Gewinnen geht vor (Gewinn-Sperre, volle Stärke wenn es eng wird, kein Remis). Er rechnet die Genauigkeit beider Seiten selbst aus seinen eigenen Bewertungen.
+- Genauigkeit (Panel und Bot) kommt aus `lib/accuracy.ts`: an chess.com angenähert (CAPS2 ist geheim), Konstanten an öffentlichen chess.com-Partien eingestellt. Nicht ohne neue Messung ändern; die Messwerkzeuge liegen außerhalb des Repos.
 
 **Prüfen:** Änderungen am Panel im echten Browser ansehen (hell, dunkel), Änderungen an der Bilderkennung mit `pnpm bench` messen (Ausgangswert: 99,8 % der Felder über drei Brettgrößen).

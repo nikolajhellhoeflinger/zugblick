@@ -1,7 +1,12 @@
 // Chess Bot 1
+// Spielt immer etwas genauer als der Gegner und gewinnt: Ziel-Genauigkeit = Gegner + GAP, nie unter FLOOR.
+// Accuracy wie im Panel – an chess.com angenähert (lib/accuracy.ts). Gewinnen geht immer vor der Accuracy.
 import { Chess, type Move } from 'chess.js';
-import { Engine, type InfoLine } from '@/panel/engine';
-import { winPct } from '@/panel/notation';
+import { expectedPoints, gameAccuracy, lossForAccuracy, moveAccuracy } from '@/lib/accuracy';
+import { Engine, type InfoLine, type Score } from '@/panel/engine';
+
+/** Gewinnchance 0–100 auf derselben Kurve wie die Accuracy. */
+const winPct = (score: Score) => 100 * expectedPoints(score);
 
 export interface Candidate {
   uci: string;
@@ -10,6 +15,25 @@ export interface Candidate {
   shallow: number;
   hidden: boolean;
   bonus: number;
+  /** Gewinnchance nach dem Zug (0–100, aus eigener Sicht). */
+  win: number;
+  /** Zug führt sofort zu Remis (Patt, Wiederholung, 50 Züge, zu wenig Material). */
+  draw: boolean;
+}
+
+/** Wie der Bot diesen Zug angelegt hat – für Tests und Fehlersuche. */
+export interface Plan {
+  /** Bisherige Genauigkeit (null = noch zu wenig Züge bewertet). */
+  own: number | null;
+  opp: number | null;
+  /** Abstand zum Gegner, der für diese Partie ausgelost wurde. */
+  gap: number;
+  /** Ziel für die eigene Genauigkeit am Partieende. */
+  target: number;
+  /** Erlaubter Verlust an Gewinnchance in diesem Zug. */
+  budget: number;
+  /** Mindest-Gewinnchance nach dem Zug. */
+  need: number;
 }
 
 export interface Choice {
@@ -17,11 +41,54 @@ export interface Choice {
   san: string;
   /** Verzögerung bis zum Zug (ms). */
   think: number;
-  why: 'einziger' | 'klar' | 'wahl' | 'abweichung';
+  why: 'einziger' | 'klar' | 'wahl' | 'abweichung' | 'sicher';
   candidates: Candidate[];
+  plan?: Plan;
 }
 
+/**
+ * So viel genauer als der Gegner will der Bot sein – je Partie zufällig in dieser Spanne,
+ * damit es nicht immer gleich aussieht. Mit der Streuung landet das Ergebnis zwischen +2 und +6 …
+ */
+export const GAP_MIN = 3;
+export const GAP_MAX = 5;
+/** … aber nie ungenauer als das. */
+export const FLOOR = 80;
+const CAP = 99;
+/** Größter Verlust an Gewinnchance in einem Zug – darüber wäre es ein Patzer. */
+const MAX_LOSS = 12;
+
 const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/** Stellung ohne Zugzähler – gleiche Stellung, gleicher Schlüssel. */
+const posKey = (fen: string) => fen.split(' ').slice(0, 4).join(' ');
+
+/** Partie aus dem Verlauf nachspielen (für Wiederholungs-Remis). Passt sie nicht zur Stellung: nur die Stellung. */
+function replay(fen: string, history: Move[]): Chess {
+  if (history.length) {
+    try {
+      const g = new Chess(history[0]!.before);
+      for (const m of history) g.move({ from: m.from, to: m.to, promotion: m.promotion });
+      if (posKey(g.fen()) === posKey(fen)) return g;
+    } catch {
+      /* Verlauf passt nicht */
+    }
+  }
+  return new Chess(fen);
+}
+
+function leadsToDraw(g: Chess, m: Move): boolean {
+  try {
+    g.move({ from: m.from, to: m.to, promotion: m.promotion });
+    const draw = g.isDraw();
+    g.undo();
+    return draw;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Eine Suche als Promise. Ergebnis: die Zeilen der tiefsten VOLLSTÄNDIG gerechneten Tiefe –
@@ -95,9 +162,58 @@ export function bonus(game: Chess, m: Move, last: Move | null, own: Move | null 
 export class ChessBot1 {
   private engine: Engine;
   private gen = 0;
+  /** Bewertete Stellungen: Gewinnchance der Seite am Zug. Daraus rechnet der Bot die Genauigkeit beider Seiten. */
+  private evals = new Map<string, { win: number; depth: number }>();
+  /** Laufende Partie: woran sie erkannt wird und welcher Abstand für sie gilt. */
+  private current = { start: '', plies: 0, gap: (GAP_MIN + GAP_MAX) / 2 };
 
   constructor(url: string) {
     this.engine = new Engine(url);
+  }
+
+  /** Abstand für diese Partie. Neue Partie (andere Ausgangsstellung, Verlauf kürzer geworden): neu auslosen. */
+  private gapFor(history: Move[], random: () => number): number {
+    const start = history.length ? posKey(history[0]!.before) : '';
+    if (start !== this.current.start || history.length + 2 < this.current.plies) {
+      this.current = { start, plies: history.length, gap: GAP_MIN + random() * (GAP_MAX - GAP_MIN) };
+    }
+    this.current.plies = history.length;
+    return this.current.gap;
+  }
+
+  private remember(fen: string, win: number, depth: number) {
+    const k = posKey(fen);
+    const prev = this.evals.get(k);
+    if (prev && prev.depth > depth) return;
+    this.evals.delete(k);
+    this.evals.set(k, { win, depth });
+    if (this.evals.size > 6000) for (const old of [...this.evals.keys()].slice(0, 1000)) this.evals.delete(old);
+  }
+
+  /** Accuracy beider Seiten über die Züge, deren Stellung davor und danach bewertet ist (wie im Panel). */
+  accuracy(history: Move[]): Record<'w' | 'b', { value: number | null; moves: number }> {
+    const accs: Record<'w' | 'b', number[]> = { w: [], b: [] };
+    for (const m of history) {
+      const before = this.evals.get(posKey(m.before));
+      const after = this.evals.get(posKey(m.after));
+      if (!before || !after || this.forced(m.before)) continue;
+      accs[m.color].push(moveAccuracy(Math.max(0, before.win - (100 - after.win)) / 100));
+    }
+    const of = (c: 'w' | 'b') => ({ value: gameAccuracy(accs[c]), moves: accs[c].length });
+    return { w: of('w'), b: of('b') };
+  }
+
+  /** Nur ein legaler Zug? Solche Züge zählen nicht zur Accuracy. */
+  private forcedCache = new Map<string, boolean>();
+  private forced(fen: string): boolean {
+    const k = posKey(fen);
+    let f = this.forcedCache.get(k);
+    if (f == null) {
+      f = new Chess(fen).moves().length === 1;
+      if (this.forcedCache.size > 6000) this.forcedCache.clear();
+      this.forcedCache.set(k, f);
+    }
+    return f;
   }
 
   ready() {
@@ -127,7 +243,10 @@ export class ChessBot1 {
       return { uci: m.lan, san: m.san, think: 400 + random() * 500, why: 'einziger', candidates: [] };
     }
 
-    const early = game.moveNumber() <= 4;
+    const me = game.turn();
+    const them = me === 'w' ? 'b' : 'w';
+    const moveNo = game.moveNumber();
+    const early = moveNo <= 4;
     const deep = await search(this.engine, { fen, multipv: Math.min(10, legal.length), movetime: early ? 500 : 900 }, 4000);
     if (gen !== this.gen) return null;
     if (!deep.length) {
@@ -142,10 +261,14 @@ export class ChessBot1 {
     const shallowBy = new Map(shallow.map((l) => [l.pv[0]!, winPct(l.score)]));
     const bestDeep = Math.max(...deep.map((l) => winPct(l.score)));
     const bestShallow = Math.max(...shallow.map((l) => winPct(l.score)), 0);
+    this.remember(fen, bestDeep, deep[0]!.depth);
+    const full = replay(fen, history);
     const candidates: Candidate[] = deep.map((l) => {
       const uci = l.pv[0]!;
-      const m = legal.find((x) => x.lan === uci)!;
-      const loss = bestDeep - winPct(l.score);
+      const m = legal.find((x) => x.lan === uci);
+      const win = winPct(l.score);
+      if (m) this.remember(m.after, 100 - win, l.depth - 1);
+      const loss = bestDeep - win;
       const g = shallowBy.has(uci) ? bestShallow - shallowBy.get(uci)! : 30;
       return {
         uci,
@@ -154,8 +277,29 @@ export class ChessBot1 {
         shallow: g,
         hidden: g >= 8 && g - loss >= 8,
         bonus: m ? bonus(game, m, last, own) : 0,
+        win,
+        draw: m ? leadsToDraw(full, m) : false,
       };
     });
+
+    // Ziel: Genauigkeit des Gegners + Abstand dieser Partie, nie unter FLOOR. Ohne Daten (Partiebeginn) wie gegen einen guten Gegner.
+    const acc = this.accuracy(history);
+    const opp = acc[them].moves >= 2 ? acc[them].value : null;
+    const mine = acc[me].value;
+    const gap = this.gapFor(history, random);
+    const target = clamp((opp ?? 88) + gap, FLOOR, CAP);
+    // Tempomat: Abweichung vom Ziel über die nächsten Züge ausgleichen – je länger die Partie, desto kräftiger.
+    const steer = mine == null ? 0 : ((target - mine) * Math.min(acc[me].moves, 30)) / 10;
+    let budget = 100 * lossForAccuracy(clamp(target + steer, target - 30, 100));
+    // Gewinn-Sperre: Mindest-Gewinnchance nach dem Zug, steigt mit der Partie.
+    const need = moveNo <= 10 ? 40 : moveNo <= 18 ? 55 : moveNo <= 26 ? 65 : 72;
+    const tight = bestDeep < need + 8;
+    // Wird es eng, volle Kraft, bis der Vorsprung wieder da ist.
+    if (tight) budget = Math.min(budget, 1.5);
+    // Klar gewonnen und die Partie zieht sich: zügig zu Ende spielen.
+    const halfmoves = Number(fen.split(' ')[4] ?? 0);
+    if (bestDeep >= 97 && (moveNo >= 30 || halfmoves >= 20)) budget = Math.min(budget, 1.5);
+    const plan: Plan = { own: mine, opp, gap, target, budget, need };
 
     const pick = (c: Candidate, why: Choice['why']): Choice => ({
       uci: c.uci,
@@ -163,24 +307,28 @@ export class ChessBot1 {
       think: thinkTime(c, candidates, early, random),
       why,
       candidates,
+      plan,
     });
 
-    const best = candidates[0]!;
-    const second = candidates[1];
-    if (!best.hidden && (!second || second.loss >= 6) && random() < 0.88) return pick(best, 'klar');
+    const ahead = bestDeep > 55;
+    const playable = candidates.filter((c) => !(ahead && c.draw));
+    const best = playable[0] ?? candidates[0]!;
+    // Matt in Sicht: durchziehen.
+    const mate = deep[0]!.score.mate;
+    if (mate != null && mate > 0 && best === candidates[0]) return pick(best, 'sicher');
 
-    if (game.moveNumber() > 8 && random() < 0.07) {
-      const alt = candidates.filter((c) => c.loss > 4 && c.loss <= 20 && !c.hidden && c.bonus >= 0);
-      if (alt.length) return pick(sample(alt, (c) => Math.exp(c.bonus * 0.6), random), 'abweichung');
-    }
-    const book = game.moveNumber() <= 8;
-    let pool = candidates.filter((c) => c.loss <= (book ? 5 : 12) && !c.hidden);
-    if (!pool.length) {
-      const visible = candidates.filter((c) => !c.hidden && c.loss <= 15);
-      pool = visible.length ? [visible[0]!] : [best];
-    }
-    const [natW, lossW] = book ? [0.9, 0.5] : [0.6, 0.2];
-    return pick(sample(pool, (c) => Math.exp(c.bonus * natW - c.loss * lossW), random), 'wahl');
+    const book = moveNo <= 8;
+    const cap = Math.min(MAX_LOSS, budget + 1.5, book ? 5 : MAX_LOSS);
+    const floorWin = Math.min(need, bestDeep - 1.5);
+    let pool = playable.filter((c) => (tight || !c.hidden) && c.loss <= cap && c.win >= floorWin);
+    if (!pool.length) pool = playable.filter((c) => c.loss <= 1.5);
+    if (!pool.length) pool = [best];
+
+    // Streuung um das Budget, im Schnitt genau das Budget; natürliche Züge bevorzugt.
+    const aim = budget * (0.6 + random() * 0.8);
+    const natW = book ? 0.9 : 0.6;
+    const c = sample(pool, (x) => Math.exp(x.bonus * natW - Math.abs(x.loss - aim) * 0.45), random);
+    return pick(c, c === candidates[0] ? (tight ? 'sicher' : 'klar') : c.loss > 4 ? 'abweichung' : 'wahl');
   }
 }
 

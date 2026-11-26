@@ -170,5 +170,22 @@
       "live geprüft 24.11.: 6 eigene Züge nach 1,3–3,9 s, aus = 8 s Stillstand"
     ],
     "geprueft": true
+  },
+  {
+    "ablauf": "Chess Bot 1 passt sich an: spielt je Partie zufällig 3–5 Punkte genauer als der Gegner (nie unter 80) und gewinnt; wird es eng, volle Stärke; Remis wird vermieden",
+    "schritte": [
+      "Stärke Chess Bot 1 wählen, Autospielen an",
+      "Testreihe 26.11.: 40/40 gewonnen gegen Stockfish Stufe 0 bis 2000 Elo, nie unter 80",
+      "live 26.11. auf chess.com gegen den Computer: 2/2 gewonnen, Neues Spiel startet selbst"
+    ],
+    "geprueft": true
+  },
+  {
+    "ablauf": "Genauigkeit wie chess.com (angenähert): eingestellt an 891 öffentlichen chess.com-Partien, im Schnitt 4,8 Punkte daneben (vorher 17,8 zu hoch); Züge ohne Alternative zählen nicht",
+    "schritte": [
+      "lib/accuracy.ts",
+      "Prüfung an Spielern, die beim Einstellen nicht dabei waren"
+    ],
+    "geprueft": true
   }
 ]

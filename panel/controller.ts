@@ -12,6 +12,7 @@ import {
   type PieceCode,
 } from '@/lib/board';
 import type { BoardRead, OverlayArrow, OverlayModel, SourceId, Tone, VisionState } from '@/lib/protocol';
+import { gameAccuracy, moveAccuracy, moveLoss } from '@/lib/accuracy';
 import { ChessBot1 } from '@/site/bot';
 import { Engine, type InfoLine, type Score } from './engine';
 import { describe, load, moveFromUci, playUci, pvToSan, toWhite, winPct } from './notation';
@@ -191,7 +192,8 @@ export class Controller {
   private lastOrientation: Color = 'w';
   private turnOverride = new Map<string, Color>();
   private evalCache = new Map<string, { depth: number; score: Score; best: string }>();
-  private moveFens: { prevFen: string; fen: string; uci: string }[] = [];
+  /** Verfolgte Züge; `forced` = es gab nur einen legalen Zug (zählt nicht zur Accuracy). */
+  private moveFens: { prevFen: string; fen: string; uci: string; forced: boolean }[] = [];
   private analysis: Engine;
   private player: Engine | null = null;
   private bot: ChessBot1 | null = null;
@@ -596,7 +598,7 @@ export class Controller {
     if (played) {
       const view = moveView(played);
       last = { move: view, mover: played.color, quality: null };
-      this.moveFens.push({ prevFen, fen: game.fen(), uci: view.uci });
+      this.moveFens.push({ prevFen, fen: game.fen(), uci: view.uci, forced: load(prevFen)?.moves().length === 1 });
     } else if (read.lastMove.length === 2) {
       // Letzten Zug aus der Hervorhebung rekonstruieren (ohne Bewertung).
       const [a, b] = read.lastMove as [string, string];
@@ -943,7 +945,8 @@ export class Controller {
     const moves = [...this.state.moves];
     const offset = moves.length - this.moveFens.length;
     let changed = false;
-    const losses: Record<Color, number[]> = { w: [], b: [] };
+    // Accuracy wie chess.com (angenähert, siehe lib/accuracy.ts); erzwungene Züge zählen nicht.
+    const accs: Record<Color, number[]> = { w: [], b: [] };
     this.moveFens.forEach((mf, i) => {
       const before = this.evalCache.get(fenKey(mf.prevFen));
       const after = this.evalCache.get(fenKey(mf.fen));
@@ -960,21 +963,18 @@ export class Controller {
       else if (loss < 15) tone = 'mistake';
       else tone = 'blunder';
       const q: Quality = { tone, loss, ...QUALITY[tone] };
-      losses[entry.mover].push(loss);
+      if (!mf.forced) accs[entry.mover].push(moveAccuracy(moveLoss(before.score, after.score)));
       if (entry.quality?.tone !== q.tone || Math.abs((entry.quality?.loss ?? -1) - loss) > 0.5) {
         moves[offset + i] = { ...entry, quality: q };
         changed = true;
       }
     });
-    const acc = (arr: number[]) =>
-      arr.length
-        ? Math.round(
-            arr.reduce((s, l) => s + Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * l) - 3.1669)), 0) /
-              arr.length,
-          )
-        : null;
+    const acc = (arr: number[]) => {
+      const a = gameAccuracy(arr);
+      return a == null ? null : Math.round(a);
+    };
     const lastEntry = moves[moves.length - 1];
-    const patch: Partial<State> = { accuracy: { w: acc(losses.w), b: acc(losses.b) } };
+    const patch: Partial<State> = { accuracy: { w: acc(accs.w), b: acc(accs.b) } };
     if (changed) patch.moves = moves;
     if (this.state.last && lastEntry && this.moveFens.length && this.state.last.move.uci === this.moveFens[this.moveFens.length - 1]!.uci) {
       if (this.state.last.quality?.tone !== lastEntry.quality?.tone || this.state.last.quality?.loss !== lastEntry.quality?.loss) {

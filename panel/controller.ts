@@ -111,6 +111,8 @@ const SETTLE_ANYWAY = 16;
 // Am Ende der Suche bleibt der gezeigte Zug, wenn er höchstens so viel Gewinnchance kostet.
 const NEAR_EQUAL = 2.5;
 
+const START_BOARD = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+
 function fenKey(fen: string) {
   return fen.split(' ').slice(0, 4).join(' ');
 }
@@ -223,6 +225,10 @@ export class Controller {
   private turnStart = 0;
   private humanFor = '';
   private staleCount = 0;
+  /** Wann das Klick-Skript einen Zug als gemacht gemeldet hat. Bestätigt ist er erst, wenn sich die Stellung ändert. */
+  private okAt = 0;
+  /** Wie oft hintereinander ein „gemachter“ Zug nicht angekommen ist (die Seite stand danach unverändert). */
+  private stuck = 0;
   private newGameListener: (() => void) | null = null;
   private tickListener: (() => void) | null = null;
   private sessionEnd = 0;
@@ -353,7 +359,9 @@ export class Controller {
   /**
    * Rückmeldung vom Klick-Skript.
    * ok → weiter. stale (Seite zeigte gerade eine andere Stellung) → einfach neu versuchen, sobald sie passt.
-   * failed → bis zu drei Mal neu versuchen, erst dann aus. Nie wird auf Verdacht nachgeklickt.
+   * failed → bis zu drei Mal neu versuchen, erst dann aus (in den ersten Zügen einer Partie deutlich länger: Die Seite
+   * nimmt am Anfang oft noch keine Züge an). Nie wird auf Verdacht nachgeklickt.
+   * ok heißt nur „die Seite zeigte kurz eine andere Stellung“. Ob der Zug wirklich ankam, prüft checkSession.
    */
   moveResult(ok: boolean, stale = false) {
     this.inFlight = 0;
@@ -361,11 +369,14 @@ export class Controller {
       this.failures = 0;
       this.staleCount = 0;
       this.rescues = 0;
+      this.okAt = Date.now();
       return;
     }
+    this.okAt = 0;
+    const patience = this.inOpening() ? 4 : 1;
     if (stale) {
-      if (++this.staleCount >= 10) return this.setAutoplay(false);
-    } else if (++this.failures >= 3) {
+      if (++this.staleCount >= 40 * patience) return this.setAutoplay(false);
+    } else if (++this.failures >= 3 * patience) {
       // Zug geht nicht durch – oft ist die Partie still vorbei (Remis, Aufgabe). Dann neue Partie versuchen.
       if (this.state.settings.autoNewGame && this.rescues < 6) {
         this.rescues++;
@@ -374,7 +385,8 @@ export class Controller {
         this.newGameListener?.();
         return;
       }
-      return this.setAutoplay(false);
+      // Nicht aufgeben: weiter versuchen (die Pause wird länger). Erst nach sehr vielen Fehlversuchen aus.
+      if (this.failures >= 30) return this.setAutoplay(false);
     }
     // Gleiche Stellung noch einmal versuchen (mit neuer, kurzer Pause).
     this.playedKey = '';
@@ -395,6 +407,23 @@ export class Controller {
     }
     // Keine Rückmeldung (z. B. Seite neu geladen): als Fehlschlag zählen, nicht hängen bleiben.
     if (this.inFlight && now - this.inFlight > 15000) this.moveResult(false);
+    // Zug als gemacht gemeldet, aber die Stellung ist nach ein paar Sekunden dieselbe und ich bin wieder dran:
+    // Die Seite hat den Zug nicht angenommen (z. B. Partie noch nicht gestartet, Zug zurückgenommen). Noch einmal
+    // versuchen – so lange, bis sich die Stellung ändert. Die Pause dazwischen wird bei jedem Fehlversuch länger.
+    if (
+      this.okAt &&
+      !this.inFlight &&
+      this.playedKey &&
+      now - this.okAt > 3000 + 1000 * Math.min(this.stuck, 5) &&
+      this.myTurn() &&
+      this.state.fen &&
+      fenKey(this.state.fen) === this.playedKey
+    ) {
+      this.stuck++;
+      this.okAt = 0;
+      this.playedKey = '';
+      this.autoplayTick(true);
+    }
     // Falls ein Timer verloren ging: neu anstoßen.
     if (!this.inFlight && !this.playTimer) this.autoplayTick();
     // Neue Partie: Nach Matt/Patt alle 3 s nach dem Knopf sehen, so lange, bis er da ist – er kommt oft erst
@@ -483,7 +512,8 @@ export class Controller {
     if (!retry) this.turnStart = Date.now();
     // „Menschlich“: erst die Mindestzeit, den Rest legt firePlay fest, sobald der Zug und die Stellung bekannt sind.
     const human = this.state.settings.tempoArt === 'menschlich';
-    const delay = retry ? 400 + Math.random() * 600 : human ? Math.min(this.state.settings.tempoMin, this.state.settings.tempoMax) * 1000 : this.thinkDelay();
+    const pause = Math.min(this.failures + this.staleCount + this.stuck, 8) * 400; // je mehr Fehlversuche, desto länger
+    const delay = retry ? 500 + Math.random() * 500 + pause : human ? Math.min(this.state.settings.tempoMin, this.state.settings.tempoMax) * 1000 : this.thinkDelay();
     const due = Date.now() + delay;
     this.playTimer = timers.setTimeout(() => this.firePlay(key, due), delay);
   }
@@ -528,8 +558,36 @@ export class Controller {
     });
   }
 
+  /** Erste Züge einer Partie: Die Seite nimmt am Anfang oft noch keine Züge an (Startverzögerung nach „Neues Spiel“). */
+  private inOpening(): boolean {
+    const moveNo = Number((this.state.fen ?? '').split(' ')[5] ?? 1) || 1;
+    return moveNo <= 2;
+  }
+
+  /** Die Stellung auf der Seite hat sich geändert (neuer Zug, Zurückspringen, neue Partie). Läuft vor dem Übernehmen. */
+  private onPositionChange(fen: string | null) {
+    // Bewegt sich die Stellung weg von der zuletzt gespielten, ist der Zug angekommen – oder die Seite hat ihn
+    // zurückgenommen. In beiden Fällen darf die alte Stellung wieder gespielt werden, falls ich in ihr noch einmal dran bin.
+    if ((fen ? fenKey(fen) : '') !== this.playedKey) {
+      this.playedKey = '';
+      this.okAt = 0;
+      this.stuck = 0;
+    }
+    // Neue Partie (Grundstellung erscheint): Fehlversuche der alten Partie zählen nicht mehr.
+    const board = fen?.split(' ')[0];
+    const before = this.state.fen?.split(' ')[0];
+    if (board === START_BOARD && before !== START_BOARD) {
+      this.failures = 0;
+      this.staleCount = 0;
+      this.rescues = 0;
+    }
+  }
+
   private set(patch: Partial<State>) {
-    if (patch.fen !== undefined && patch.fen !== this.state.fen) this.lastChange = Date.now();
+    if (patch.fen !== undefined && patch.fen !== this.state.fen) {
+      this.lastChange = Date.now();
+      this.onPositionChange(patch.fen);
+    }
     this.state = { ...this.state, ...patch };
     this.autoplayTick();
     if (this.emitQueued) return;

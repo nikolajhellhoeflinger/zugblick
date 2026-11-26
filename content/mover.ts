@@ -39,7 +39,13 @@ async function waitMoved(io: MoverIO, job: MoveJob, timeoutMs: number): Promise<
   const until = Date.now() + timeoutMs;
   for (;;) {
     const p = io.placement();
-    if (p === job.after || (p !== null && p !== job.before)) return true;
+    if (p === job.after || (p !== null && p !== job.before)) {
+      // Die Seite zeigt Züge manchmal vorläufig und springt zurück, wenn sie sie nicht annimmt (z. B. Partie noch nicht
+      // gestartet). Deshalb zählt die neue Stellung erst, wenn sie kurz danach immer noch steht.
+      await io.sleep(350);
+      const q = io.placement();
+      if (q !== null && q !== job.before) return true;
+    }
     if (Date.now() >= until) return false;
     await io.sleep(100);
   }

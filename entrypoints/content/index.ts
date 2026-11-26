@@ -80,6 +80,10 @@ export default defineContentScript({
      *  Nimmt jeden Text, der „neu/new“ und danach ein Spiel-Wort (Spiel, Partie, Turnier, Minuten …) enthält. */
     const NEW_GAME =
       /\b(neues?\s+(spiel|turnier)\w*|new\s+(game|tournament)|(neue?|new)\s*,?\s*\d+\s*(min\w*|[+|]\s*\d+))/i;
+    /** „Neue Partie“ allein gilt nur im Fenster nach Partieende – nie der gleichnamige Reiter in der Seitenleiste. */
+    const NEW_GAME_DIALOG = /^neue partie\b/i;
+    const inDialog = (el: HTMLElement) =>
+      !!el.closest('[role="dialog"], [aria-modal="true"], [class*="modal" i], [class*="dialog" i], [class*="game-over" i]');
     /** Alle Knöpfe der Seite – auch in eingekapselten Bausteinen (offene Shadow-Roots). */
     const allButtons = (): HTMLElement[] => {
       const out: HTMLElement[] = [];
@@ -117,7 +121,7 @@ export default defineContentScript({
       // 1. Jeder Knopf, dessen kurzer Text nach einem neuen Spiel klingt. Der kürzeste Treffer gewinnt.
       const candidates = all
         .map((el) => ({ el, t: label(el), h: hint(el) }))
-        .filter((c) => c.t.length > 0 && c.t.length <= 80 && NEW_GAME.test(c.h))
+        .filter((c) => c.t.length > 0 && c.t.length <= 80 && (NEW_GAME.test(c.h) || (NEW_GAME_DIALOG.test(c.t) && inDialog(c.el))))
         .sort((a, b) => a.t.length - b.t.length);
       const fresh = candidates[0]?.el;
       if (!fresh) {
@@ -135,7 +139,10 @@ export default defineContentScript({
       }
       if (resume) return resume.click();
       // 3. Neue Partie.
-      if (fresh) return fresh.click();
+      if (fresh) {
+        console.debug('[Zugblick] klicke:', label(fresh));
+        return fresh.click();
+      }
       // Zurück in der Bot-Auswahl (z. B. nach Neuladen): dort heißt der Knopf „Spielen“. Nur auf der
       // Computer-Seite – anderswo sucht „Spielen“ einen menschlichen Gegner.
       if (/\/play\/computer/.test(location.pathname)) {
@@ -166,6 +173,12 @@ export default defineContentScript({
 
     // Ein Zug nach dem anderen; während einer läuft, kommt kein zweiter dazu.
     let moving = false;
+    /** Liegt das Panel (ganz oder teilweise) über dem Brett? Nur dann muss es für Klicks durchlässig werden. */
+    const overlapsBoard = () => {
+      const b = rect();
+      const f = host?.rect();
+      return !!(b && f && f.left < b.right && f.right > b.left && f.top < b.bottom && f.bottom > b.top);
+    };
     const boardPlacement = (): string | null => {
       if (!current || !current.el.isConnected || vision?.active) return null;
       return current.adapter.read(current.el)?.placement ?? null;
@@ -176,11 +189,20 @@ export default defineContentScript({
         return;
       }
       moving = true;
-      host?.passThrough(true);
       try {
         const outcome = await executeMove(
           {
-            click: (sq) => clickSquare(sq),
+            // Das Panel ist nur für den Klick selbst durchlässig – und nur, wenn es wirklich über dem Brett liegt.
+            // Sonst blieb es während des ganzen Zugs (und bei jedem Wiederholen) unbedienbar, auch zum Verschieben.
+            click: (sq) => {
+              const cover = overlapsBoard();
+              if (cover) host?.passThrough(true);
+              try {
+                return clickSquare(sq);
+              } finally {
+                if (cover) window.setTimeout(() => host?.passThrough(false), 150);
+              }
+            },
             placement: boardPlacement,
             sleep: panelSleep,
           },

@@ -23,10 +23,8 @@ Erledige so viel wie möglich selbst. Nur die zwei Klicks in Chrome muss der Men
    2. **Entpackte Erweiterung laden** klicken und den Ordner `Zugblick` in seinem Benutzerordner wählen.
    3. Optional: über das Puzzle-Symbol in der Browserleiste Zugblick anheften.
    4. Eine Schachseite öffnen (z. B. lichess.org/analysis) – das Panel erscheint von selbst. Ein/aus: **Alt+Shift+Z**.
-4. `chrome://`-Seiten lassen sich per Befehlszeile nicht immer öffnen. Klappt das nicht, sag dem Menschen, er soll `chrome://extensions` in die Adresszeile tippen.
 5. **Update:** dasselbe Skript erneut ausführen, dann in `chrome://extensions` bei Zugblick auf den Neuladen-Pfeil klicken.
 
-Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engine-Hilfe auf Schachseiten verboten und führt zur Kontosperre. Zum Analysieren, gegen Bots und zum Lernen ist Zugblick gedacht.
 
 ## B) Am Code arbeiten
 
@@ -59,8 +57,7 @@ Hinweis für den Menschen (einmal, sachlich): In Partien gegen Menschen ist Engi
 - Stile an Elementen in fremden Seiten immer mit `!important` setzen – Seiten-CSS (z. B. `iframe { max-width }`) verformt sonst das Panel.
 - Keine Bildschirmfotos fremder Seiten ins Repo (`tools/bench/samples/` ist ignoriert).
 - Neue Abhängigkeiten mit fester Version.
-- Automatisch spielen: chess.com prüft selbst, was unter dem Mauszeiger liegt – alles über dem Brett blockiert den Zug. Unser Panel wird deshalb während eines Zugs klick-durchlässig (`PanelHost.passThrough`); fremde Flächen (Cookie-Banner) werden nie durchgeklickt.
-- Autospielen pausiert im Hintergrund-Tab nicht und überlebt ein Neuladen der Seite: Das Inhalts-Skript merkt es sich in `sessionStorage` (`zb:autoplay`), fortgesetzt wird nur bei einem Lebenszeichen jünger als 60 s. „Neues Spiel“ sucht nach Partieende so lange weiter, bis der Knopf da ist (Revanche/Rematch zuerst) – Knöpfe, die eine neue Partie gegen Menschen suchen, werden nie gedrückt.
+- Autospielen pausiert im Hintergrund-Tab nicht und überlebt ein Neuladen der Seite: Das Inhalts-Skript merkt es sich in `sessionStorage` (`zb:autoplay`), fortgesetzt wird nur bei einem Lebenszeichen jünger als 60 s. „Neues Spiel“ sucht nach Partieende so lange weiter, bis der Knopf da ist: „Neues Spiel“, „Neue 10 Minuten“, „Neue 1 + 1“, „Neues Turnier“ usw. (Muster `NEW_GAME` in `entrypoints/content/index.ts`). Revanche/Rematch und der Reiter „Neue Partie“ werden nie gedrückt.
 - Browser-Schnittstellen (`browser.*`) nie direkt im geteilten Code – nur über `platform/current.ts`, sonst bricht das Userscript.
 - Hintergrund-Tab: Chrome drosselt Timer dort (höchstens 1/s, nach 5 Minuten bei verketteten Timern ~1/min). Das Panel nimmt deshalb `platform/timers.ts` (worker-timers-broker/-worker, eigener Worker über Vites `?worker`-Import); das Inhalts-Skript lässt seine Wartezeiten beim Ziehen vom Panel wecken (`sleep`/`wake`) und bekommt beim Autospielen jede Sekunde ein `tick`. `platform/timers.ts` nur im Panel importieren – Userscript und Website ersetzen sie per Alias durch `platform/timers-plain.ts`.
 - Sprache: i18next (`lib/i18n.ts`), Texte in `lib/locales/de.ts` und `en.ts` (en.ts hat den Typ von de.ts – fehlt ein Text, schlägt `pnpm compile` fehl). Keine festen Texte in der Oberfläche; der Controller speichert Schlüssel (z. B. `gameOver` → `over.*`, Fehler als Code → `errors.*`), die Oberfläche übersetzt. Einstellung `language` (auto/de/en), Website folgt der Browser-Sprache.

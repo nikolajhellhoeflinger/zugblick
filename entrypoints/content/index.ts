@@ -76,17 +76,19 @@ export default defineContentScript({
       return true;
     };
 
-    /** Knöpfe für eine neue Partie, in dieser Reihenfolge gesucht (deutsch und englisch). Revanche zuerst:
-     *  gleicher Gegner, gleiche Einstellungen, startet sofort. Nur sichtbare, nicht gesperrte Knöpfe. */
-    const NEW_GAME = [
-      /^(revanche|rematch)\b/i,
-      /^(neue partie|neues spiel|new game|nochmal spielen|noch einmal spielen|erneut spielen|play again)\b/i,
-    ];
+    /** Knopf für ein neues Spiel: „Neues Spiel“, „Neue 10 Minuten“, „Neues Turnier“, „New game“ usw.
+     *  Nimmt jeden Text, der „neu/new“ und danach ein Spiel-Wort (Spiel, Partie, Turnier, Minuten …) enthält. */
+    const NEW_GAME =
+      /\b(neues?\s+(spiel|turnier)\w*|new\s+(game|tournament)|(neue?|new)\s*,?\s*\d+\s*(min\w*|[+|]\s*\d+))/i;
     /** Alle Knöpfe der Seite – auch in eingekapselten Bausteinen (offene Shadow-Roots). */
     const allButtons = (): HTMLElement[] => {
       const out: HTMLElement[] = [];
       const walk = (root: Document | ShadowRoot, depth: number) => {
-        out.push(...root.querySelectorAll<HTMLElement>('button, a, [role="button"]'));
+        out.push(
+          ...root.querySelectorAll<HTMLElement>(
+            'button, a, [role="button"], [role="link"], [role="menuitem"], input[type="button"], input[type="submit"]',
+          ),
+        );
         if (depth > 4) return;
         for (const el of root.querySelectorAll<HTMLElement>('*')) if (el.shadowRoot) walk(el.shadowRoot, depth + 1);
       };
@@ -94,9 +96,17 @@ export default defineContentScript({
       return out;
     };
     const clickNewGame = () => {
-      // Sichtbarer Text zuerst (ohne versteckte Hinweise), sonst Beschriftung für Screenreader.
+      // Sichtbarer Text zuerst (ohne versteckte Hinweise), sonst Beschriftung für Screenreader, Titel, Eingabewert.
+      // Immer EIN Text pro Knopf: Die „Weiter“- und „Spielen“-Suche vergleicht den ganzen Text (^…$).
       const label = (el: HTMLElement) =>
-        (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim() || el.getAttribute('aria-label')?.trim() || el.title.trim();
+        (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim() ||
+        el.getAttribute('aria-label')?.trim() ||
+        el.title.trim() ||
+        (el as HTMLInputElement).value?.trim() ||
+        '';
+      // Nur für die Suche nach „Neues Spiel“: alles, was die Seite dem Knopf mitgibt.
+      const hint = (el: HTMLElement) =>
+        [label(el), el.getAttribute('aria-label'), el.title].join(' ').replace(/\s+/g, ' ').trim();
       const all = allButtons().filter(
         (el) =>
           el.getClientRects().length > 0 &&
@@ -104,12 +114,20 @@ export default defineContentScript({
           el.getAttribute('aria-disabled') !== 'true' &&
           !el.closest('zugblick-panel'),
       );
-      const find = (re: RegExp) => all.find((el) => re.test(label(el)));
-      // 1. Partie vorbei: Revanche.
-      const rematch = find(NEW_GAME[0]!);
-      if (rematch) return rematch.click();
-      // 2. Nach Neuladen bietet die Seite „Weiter“ (laufende Partie) neben „Neue Partie“ an: weiterspielen.
-      const fresh = find(NEW_GAME[1]!);
+      // 1. Jeder Knopf, dessen kurzer Text nach einem neuen Spiel klingt. Der kürzeste Treffer gewinnt.
+      const candidates = all
+        .map((el) => ({ el, t: label(el), h: hint(el) }))
+        .filter((c) => c.t.length > 0 && c.t.length <= 80 && NEW_GAME.test(c.h))
+        .sort((a, b) => a.t.length - b.t.length);
+      const fresh = candidates[0]?.el;
+      if (!fresh) {
+        // Diagnose: Beschriftungen mit „neu“/„new“, die es auf der Seite gibt (in der Browser-Konsole).
+        console.debug(
+          '[Zugblick] kein Knopf für neues Spiel gefunden:',
+          all.map(label).filter((t) => /neu|new/i.test(t) && t.length <= 80).slice(0, 15),
+        );
+      }
+      // 2. Nach Neuladen bietet die Seite „Weiter“ (laufende Partie) neben dem neuen Spiel an: weiterspielen.
       let resume: HTMLElement | undefined;
       for (let box = fresh?.parentElement, i = 0; box && i < 5 && !resume; box = box.parentElement, i++) {
         const scope = box;

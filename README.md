@@ -87,10 +87,6 @@ Ohne Entwicklermodus und ohne Apple-Konto, über die kostenlose Open-Source-App 
 | Seite ohne erkanntes Brett | „Brett per Bild erkennen“ – Zugblick sucht das Brett selbst, sonst einen Rahmen darum ziehen |
 | Panel verschieben | an der Kopfzeile ziehen; die Position wird je Seite gemerkt |
 
-## Fair Play
-
-Zugblick ist ein Analyse- und Lernwerkzeug. In Partien **gegen Menschen** verbieten chess.com, lichess und die meisten Schachseiten Engine-Hilfe, und Konten werden dafür gesperrt. Nutze Zugblick zum Analysieren, gegen Bots, für eigene Partien im Nachhinein und zum Lernen.
-
 ## Für Entwickler
 
 ```bash

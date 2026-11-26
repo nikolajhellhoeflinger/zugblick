@@ -14,6 +14,8 @@ import {
 import type { BoardRead, OverlayArrow, OverlayModel, SourceId, Tone, VisionState } from '@/lib/protocol';
 import { gameAccuracy, moveAccuracy, moveLoss } from '@/lib/accuracy';
 import { ChessBot1 } from '@/site/bot';
+import { timers } from '@/platform/timers';
+import { applyLanguage } from '@/lib/i18n';
 import { Engine, type InfoLine, type Score } from './engine';
 import { describe, load, moveFromUci, playUci, pvToSan, toWhite, winPct } from './notation';
 import { DEFAULTS, DEPTH, loadSettings, saveSettings, type Settings } from './settings';
@@ -39,7 +41,6 @@ export interface LineView {
 
 export interface Quality {
   tone: Tone;
-  label: string;
   glyph: string;
   loss: number;
 }
@@ -87,12 +88,13 @@ export interface State {
   settings: Settings;
 }
 
-const QUALITY: Record<Tone, { label: string; glyph: string }> = {
-  best: { label: 'Bester Zug', glyph: '★' },
-  good: { label: 'Gut', glyph: '✓' },
-  inaccuracy: { label: 'Ungenau', glyph: '?!' },
-  mistake: { label: 'Fehler', glyph: '?' },
-  blunder: { label: 'Patzer', glyph: '??' },
+// Bezeichnungen der Stufen stehen in lib/locales (tone.*).
+const QUALITY: Record<Tone, { glyph: string }> = {
+  best: { glyph: '★' },
+  good: { glyph: '✓' },
+  inaccuracy: { glyph: '?!' },
+  mistake: { glyph: '?' },
+  blunder: { glyph: '??' },
 };
 
 const ENGINE_URL = engineUrl();
@@ -217,8 +219,12 @@ export class Controller {
   /** Letzte Änderung der Stellung (für: Partie still vorbei, z. B. Remis durch Wiederholung). */
   private lastChange = Date.now();
   private lastIdleProbe = 0;
+  /** „Menschlich“: wann ich am Zug war und für welche Stellung die Bedenkzeit schon feststeht. */
+  private turnStart = 0;
+  private humanFor = '';
   private staleCount = 0;
   private newGameListener: (() => void) | null = null;
+  private tickListener: (() => void) | null = null;
   private sessionEnd = 0;
   private autoplayListener: ((on: boolean, until: number) => void) | null = null;
   private lastBeat = 0;
@@ -265,10 +271,12 @@ export class Controller {
       this.analyze();
     });
     void loadSettings().then((s) => {
+      applyLanguage(s.language);
       this.set({ settings: s, maxDepth: DEPTH[s.depth] });
       this.analyze();
     });
-    window.setInterval(() => this.checkSession(), 1000);
+    // Ungedrosselte Timer (eigener Worker): Autospielen läuft auch im Hintergrund-Tab im Takt.
+    timers.setInterval(() => this.checkSession(), 1000);
     document.addEventListener('visibilitychange', () => {
       this.hidden = document.visibilityState === 'hidden';
       this.applyPause();
@@ -287,6 +295,11 @@ export class Controller {
 
   onPlay(fn: (m: { from: string; to: string; promotion: boolean; before: string; after: string }) => void) {
     this.playListener = fn;
+  }
+
+  /** Beim Autospielen jede Sekunde: das Inhalts-Skript soll nach dem Brett sehen (auch im Hintergrund-Tab). */
+  onTick(fn: () => void) {
+    this.tickListener = fn;
   }
 
   onNewGame(fn: () => void) {
@@ -332,7 +345,7 @@ export class Controller {
   }
 
   private clearPlayTimer() {
-    window.clearTimeout(this.playTimer);
+    timers.clearTimeout(this.playTimer);
     this.playTimer = 0;
     this.playTimerFen = '';
   }
@@ -374,6 +387,7 @@ export class Controller {
     if (!s.autoplay) return;
     const now = Date.now();
     if (this.sessionEnd && now >= this.sessionEnd) return this.setAutoplay(false);
+    this.tickListener?.();
     // Lebenszeichen ans Inhalts-Skript: Nur ein frisches „an“ wird nach einem Neuladen fortgesetzt.
     if (now - this.lastBeat > 10_000) {
       this.lastBeat = now;
@@ -413,6 +427,37 @@ export class Controller {
     return (lo + (hi - lo) * u) * 1000;
   }
 
+  /**
+   * „Menschlich“: wie lange ein Mensch hier überlegen würde, innerhalb von–bis. Eröffnung schnell, Mittelspiel
+   * langsamer; offensichtliche Züge (einziger Zug, Zurückschlagen, Matt, klar bester Zug) kurz; mehrere fast
+   * gleich gute Züge lang.
+   */
+  private humanDelay(): number {
+    const s = this.state;
+    const lo = Math.min(s.settings.tempoMin, s.settings.tempoMax);
+    const hi = Math.max(s.settings.tempoMin, s.settings.tempoMax);
+    const parts = (s.fen ?? '').split(' ');
+    const moveNo = Number(parts[5] ?? 1) || 1;
+    const officers = (parts[0] ?? '').replace(/[^nbrqNBRQ]/g, '').length;
+    // Grundwert nach Partiephase: Eröffnung, Übergang, Endspiel, Mittelspiel
+    let u = moveNo <= 6 ? 0.08 : moveNo <= 12 ? 0.25 : officers <= 4 ? 0.4 : 0.55;
+    const best = s.best;
+    const top = s.lines[0] ? winPct(s.lines[0].score) : null;
+    const close = top == null ? 0 : s.lines.filter((l) => top - winPct(l.score) <= 4).length;
+    const second = top != null && s.lines[1] ? top - winPct(s.lines[1].score) : null;
+    const recapture = !!(best && s.last && s.last.move.to === best.to && s.last.move.san.includes('x') && best.san.includes('x'));
+    const obvious =
+      (this.game?.moves().length ?? 2) === 1 || recapture || !!best?.san.endsWith('#') || (second != null && second >= 15 && moveNo > 6);
+    if (obvious) u = Math.min(u, 0.12);
+    else {
+      if (close >= 3) u += 0.25;
+      else if (close === 2) u += 0.12;
+      if (this.game?.inCheck()) u += 0.05;
+    }
+    u = Math.max(0, Math.min(1, u + (Math.random() - 0.5) * 0.2));
+    return (lo + (hi - lo) * u) * 1000;
+  }
+
   /** Bin ich gerade am Zug, und darf automatisch gespielt werden? */
   private myTurn(): boolean {
     const s = this.state;
@@ -435,9 +480,12 @@ export class Controller {
     if (this.playTimer && this.playTimerFen === key) return;
     this.clearPlayTimer();
     this.playTimerFen = key;
-    const delay = retry ? 400 + Math.random() * 600 : this.thinkDelay();
+    if (!retry) this.turnStart = Date.now();
+    // „Menschlich“: erst die Mindestzeit, den Rest legt firePlay fest, sobald der Zug und die Stellung bekannt sind.
+    const human = this.state.settings.tempoArt === 'menschlich';
+    const delay = retry ? 400 + Math.random() * 600 : human ? Math.min(this.state.settings.tempoMin, this.state.settings.tempoMax) * 1000 : this.thinkDelay();
     const due = Date.now() + delay;
-    this.playTimer = window.setTimeout(() => this.firePlay(key, due), delay);
+    this.playTimer = timers.setTimeout(() => this.firePlay(key, due), delay);
   }
 
   private firePlay(key: string, due: number) {
@@ -448,18 +496,28 @@ export class Controller {
       return;
     }
     if (!now.best || (!now.settled && Date.now() - due < 8000)) {
-      this.playTimer = window.setTimeout(() => this.firePlay(key, due), 250);
+      this.playTimer = timers.setTimeout(() => this.firePlay(key, due), 250);
       return;
+    }
+    // „Menschlich“: Zug steht fest – jetzt noch so lange warten, wie ein Mensch hier überlegen würde (nur warten, nicht rechnen).
+    if (now.settings.tempoArt === 'menschlich' && this.humanFor !== key) {
+      this.humanFor = key;
+      const wait = this.turnStart + this.humanDelay() - Date.now();
+      if (wait > 0) {
+        this.playTimer = timers.setTimeout(() => this.firePlay(key, due), wait);
+        return;
+      }
     }
     const before = now.fen!.split(' ')[0]!;
     const g = load(now.fen!);
     const m = g && playUci(g, now.best.uci);
     if (!m || !g) {
-      this.playTimer = window.setTimeout(() => this.firePlay(key, due), 500);
+      this.playTimer = timers.setTimeout(() => this.firePlay(key, due), 500);
       return;
     }
     this.playTimerFen = '';
     this.playedKey = key;
+    this.humanFor = '';
     this.inFlight = Date.now();
     this.playListener?.({
       from: now.best.from,
@@ -614,9 +672,10 @@ export class Controller {
     }
 
     let gameOver: string | null = null;
-    if (game.isCheckmate()) gameOver = game.turn() === 'w' ? 'Schachmatt · Schwarz gewinnt' : 'Schachmatt · Weiß gewinnt';
-    else if (game.isStalemate()) gameOver = 'Patt · Remis';
-    else if (game.isInsufficientMaterial()) gameOver = 'Remis · zu wenig Material';
+    // Schlüssel für die Übersetzung (over.*), die Oberfläche setzt den Text in der gewählten Sprache ein.
+    if (game.isCheckmate()) gameOver = game.turn() === 'w' ? 'mateBlack' : 'mateWhite';
+    else if (game.isStalemate()) gameOver = 'stalemate';
+    else if (game.isInsufficientMaterial()) gameOver = 'material';
 
     const moves = played
       ? [...this.state.moves, { san: played.san, mover: played.color, quality: null }]
@@ -702,9 +761,16 @@ export class Controller {
   updateSettings(patch: Partial<Settings>) {
     const settings = { ...this.state.settings, ...patch };
     saveSettings(settings);
+    if (patch.language) applyLanguage(patch.language);
     this.set({ settings, maxDepth: DEPTH[settings.depth] });
+    // Sprache: neu rechnen, damit auch die Zugbeschreibungen in der neuen Sprache kommen.
     const needsRestart =
-      patch.lines != null || patch.depth != null || patch.elo !== undefined || patch.bot !== undefined || patch.threat != null;
+      patch.lines != null ||
+      patch.depth != null ||
+      patch.elo !== undefined ||
+      patch.bot !== undefined ||
+      patch.threat != null ||
+      patch.language != null;
     if (needsRestart) this.analyze();
   }
 

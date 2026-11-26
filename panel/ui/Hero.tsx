@@ -1,5 +1,6 @@
 import { KIND } from '@/platform/current';
 import { ArrowLeftRight, ScanLine, LoaderCircle, Flag, CircleAlert, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { ToContent } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
@@ -10,13 +11,14 @@ import { San } from './Figurine';
 import { IconButton } from './IconButton';
 
 function EvalBar({ white, orientation, mate }: { white: number; orientation: 'w' | 'b'; mate: boolean }) {
+  const { t } = useTranslation();
   // Weiß-Anteil wächst von der Seite, auf der Weiß sitzt.
   const whiteBottom = orientation === 'w';
   return (
     <div
       className="relative w-2 shrink-0 self-stretch overflow-hidden rounded-[4px] border border-line-strong bg-bar-black"
       role="img"
-      aria-label={`Gewinnchance Weiß ${Math.round(white)} Prozent`}
+      aria-label={t('hero.winChance', { pct: Math.round(white) })}
     >
       <div
         className={cn(
@@ -33,11 +35,12 @@ function EvalBar({ white, orientation, mate }: { white: number; orientation: 'w'
 
 /** Steht der Zug schon fest? „rechnet“ (grau) oder „Sicher“ (Akzent). */
 function SettleState({ settled, mine }: { settled: boolean; mine: boolean }) {
+  const { t } = useTranslation();
   if (!settled) {
     return (
       <span className="inline-flex h-5 items-center gap-1.5 px-1 text-[11.5px] font-[550] text-ink-3" aria-live="polite">
         <span className="size-1.5 animate-pulse rounded-full bg-ink-3" />
-        rechnet
+        {t('hero.computing')}
       </span>
     );
   }
@@ -50,7 +53,7 @@ function SettleState({ settled, mine }: { settled: boolean; mine: boolean }) {
       aria-live="polite"
     >
       <Check className="size-3" strokeWidth={3} />
-      {mine ? 'Sicher' : 'Erwartet'}
+      {mine ? t('hero.settled') : t('hero.expected')}
     </span>
   );
 }
@@ -76,10 +79,13 @@ function Message({
 }
 
 export function Hero({ state: s, controller, send }: { state: State; controller: Controller; send: (m: ToContent) => void }) {
+  const { t } = useTranslation();
+  // Bekannte Fehler kommen als Code (errors.*), alles andere wörtlich.
+  const err = (msg: string) => t(`errors.${msg}`, { defaultValue: msg });
   if (s.engineError) {
     return (
-      <Message icon={<CircleAlert />} title="Stockfish startet nicht">
-        <p className="mt-1 text-[12.5px] text-ink-3">{s.engineError}</p>
+      <Message icon={<CircleAlert />} title={t('hero.engineFail')}>
+        <p className="mt-1 text-[12.5px] text-ink-3">{err(s.engineError)}</p>
       </Message>
     );
   }
@@ -101,17 +107,17 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
     const v = s.vision;
     const title =
       v.phase === 'marking'
-        ? 'Rahmen um das Brett ziehen'
+        ? t('hero.marking')
         : v.phase === 'searching'
-          ? 'Suche das Brett'
+          ? t('hero.searching')
           : v.phase === 'scanning'
-            ? 'Lese die Stellung'
-            : 'Kein Brett erkannt';
+            ? t('hero.scanning')
+            : t('hero.noBoard');
     const busy = v.phase === 'searching' || v.phase === 'scanning';
     return (
       <Message icon={busy ? <LoaderCircle className="animate-spin" /> : <ScanLine />} title={title}>
-        {v.phase === 'error' && <p className="mt-1 text-[12.5px] text-threat">{v.message}</p>}
-        {v.phase === 'marking' && <p className="mt-1 text-[12.5px] text-ink-3">Esc bricht ab.</p>}
+        {v.phase === 'error' && <p className="mt-1 text-[12.5px] text-threat">{err(v.message)}</p>}
+        {v.phase === 'marking' && <p className="mt-1 text-[12.5px] text-ink-3">{t('hero.escCancels')}</p>}
         {KIND === 'extension' && (v.phase === 'off' || v.phase === 'error') && (
           <Button
             size="sm"
@@ -119,7 +125,7 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
             onClick={() => send({ type: 'vision', action: 'mark' })}
           >
             <ScanLine className="size-3.5" />
-            Brett per Bild erkennen
+            {t('hero.recognize')}
           </Button>
         )}
       </Message>
@@ -128,16 +134,16 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
 
   if (s.phase === 'invalid') {
     return (
-      <Message icon={<CircleAlert />} title="Stellung unvollständig">
-        <p className="mt-1 text-[12.5px] text-ink-3">Sobald beide Könige stehen, rechnet Zugblick weiter.</p>
+      <Message icon={<CircleAlert />} title={t('hero.invalid')}>
+        <p className="mt-1 text-[12.5px] text-ink-3">{t('hero.invalidHint')}</p>
       </Message>
     );
   }
 
   if (s.phase === 'gameover') {
     return (
-      <Message icon={<Flag />} title={s.gameOver ?? 'Partie vorbei'}>
-        <p className="mt-1 text-[12.5px] text-ink-3">Keine Züge mehr.</p>
+      <Message icon={<Flag />} title={s.gameOver ? t(`over.${s.gameOver}`) : t('hero.gameOver')}>
+        <p className="mt-1 text-[12.5px] text-ink-3">{t('hero.noMoves')}</p>
       </Message>
     );
   }
@@ -145,11 +151,11 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
   const mine = s.analysisBoard || s.turn === s.orientation;
   const label = s.analysisBoard
     ? s.turn === 'w'
-      ? 'Weiß am Zug'
-      : 'Schwarz am Zug'
+      ? t('hero.whiteToMove')
+      : t('hero.blackToMove')
     : mine
-      ? 'Dein Zug'
-      : 'Gegner am Zug';
+      ? t('hero.yourMove')
+      : t('hero.opponentToMove');
   const top = s.lines[0];
   const white = top ? winPct(top.white) : 50;
   const best = s.best;
@@ -171,12 +177,12 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
               )}
             >
               {label}
-              {!s.turnCertain && <span className="ml-1.5 font-[450] text-ink-3">· geraten</span>}
+              {!s.turnCertain && <span className="ml-1.5 font-[450] text-ink-3">{t('hero.guessed')}</span>}
             </span>
             <div className="flex items-center gap-1">
               {best && <SettleState settled={s.settled} mine={mine} />}
               <IconButton
-                label="Seite am Zug wechseln"
+                label={t('hero.flipTurn')}
                 onClick={() => controller.flipTurn()}
                 active={!s.turnCertain}
                 className="-mr-1.5 size-7 [&_svg]:size-[15px]"
@@ -207,7 +213,7 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
             ) : (
               <span className="flex items-center gap-2 pb-2 text-[13px] text-ink-3">
                 <LoaderCircle className="size-4 animate-spin" />
-                {s.phase === 'loading' ? 'Stockfish startet' : 'rechnet'}
+                {s.phase === 'loading' ? t('hero.starting') : t('hero.computing')}
               </span>
             )}
             {bestWhite && (
@@ -233,7 +239,7 @@ export function Hero({ state: s, controller, send }: { state: State; controller:
           'absolute inset-x-0 bottom-0 h-[2px] transition-opacity duration-500',
           progress >= 1 ? 'opacity-0' : 'opacity-100',
         )}
-        title={`Rechentiefe ${s.depth} von ${s.maxDepth}`}
+        title={t('hero.depth', { depth: s.depth, max: s.maxDepth })}
       >
         <div
           className="h-full bg-[var(--zb-accent)] transition-[width] duration-300 ease-out"

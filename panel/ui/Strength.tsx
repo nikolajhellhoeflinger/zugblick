@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ELO_STEPS } from '../settings';
 import { BotIcon } from './BotIcon';
@@ -17,9 +18,10 @@ export function Strength({
   bot: boolean;
   onChange: (patch: { elo: number | null; bot: boolean }) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-3 border-t border-line px-4 py-2.5">
-      <span className="shrink-0 text-[12px] text-ink-3">Stärke</span>
+      <span className="shrink-0 text-[12px] text-ink-3">{t('strength.label')}</span>
       <ToggleGroup
         type="single"
         value={bot ? 'bot' : elo == null ? 'max' : String(elo)}
@@ -29,7 +31,7 @@ export function Strength({
           else onChange({ elo: v === 'max' ? null : Number(v), bot: false });
         }}
         className="grid min-w-0 flex-1 grid-cols-7 rounded-lg bg-sunken p-0.5"
-        aria-label="Spielstärke"
+        aria-label={t('strength.aria')}
       >
         {ELO_STEPS.map((elo) => (
           <ToggleGroupItem

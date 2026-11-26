@@ -1,4 +1,5 @@
 import { X, ScanLine } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ToContent } from '@/lib/protocol';
 import type { Tone } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export function QualityDot({ tone, glyph, className }: { tone: Tone; glyph: stri
 }
 
 export function PieceCard({ state: s, onClear }: { state: State; onClear: () => void }) {
+  const { t } = useTranslation();
   const p = s.piece!;
   const score = p.score ? toWhite(p.score, s.turn) : null;
   return (
@@ -43,11 +45,11 @@ export function PieceCard({ state: s, onClear }: { state: State; onClear: () => 
       <div className="flex items-center gap-1.5 text-[12px] text-ink-2">
         <PieceIcon code={'w' + p.code[1]} className="size-4" />
         <span>
-          {pieceName(p.code[1]!)} auf <span className="font-mono">{p.square}</span>
+          {pieceName(p.code[1]!)} {t('extras.on')} <span className="font-mono">{p.square}</span>
         </span>
         <button
           type="button"
-          aria-label="Auswahl aufheben"
+          aria-label={t('extras.clearSelection')}
           onClick={onClear}
           className="-mr-1 ml-auto grid size-6 place-items-center rounded text-ink-3 hover:text-ink"
         >
@@ -69,32 +71,33 @@ export function PieceCard({ state: s, onClear }: { state: State; onClear: () => 
           </div>
           <p className="mt-1 text-[12px] text-ink-2">
             {p.isBest
-              ? 'Das ist auch insgesamt der beste Zug.'
+              ? t('extras.alsoBest')
               : p.deltaCp != null && s.best
                 ? p.deltaCp >= 100000
-                  ? `Verpasst ein Matt – besser ist ${s.best.san}.`
-                  : `${(p.deltaCp / 100).toFixed(2)} schwächer als ${s.best.san}.`
+                  ? t('extras.missesMate', { san: s.best.san })
+                  : t('extras.weaker', { delta: (p.deltaCp / 100).toFixed(2), san: s.best.san })
                 : p.move.text}
           </p>
         </>
       ) : (
-        <p className="mt-1 text-[12.5px] text-ink-2">Diese Figur kann gerade nicht ziehen.</p>
+        <p className="mt-1 text-[12.5px] text-ink-2">{t('extras.cannotMove')}</p>
       )}
     </div>
   );
 }
 
 export function LastMoveStrip({ state: s }: { state: State }) {
+  const { t } = useTranslation();
   const last = s.last!;
   const q = last.quality!;
   return (
     <div className="flex h-8 items-center gap-2.5 px-4 text-[12.5px]">
       <QualityDot tone={q.tone} glyph={q.glyph} />
-      <span className="text-ink-3">Letzter Zug</span>
+      <span className="text-ink-3">{t('extras.lastMove')}</span>
       <San san={last.move.san} color={last.mover} className="font-[700] text-ink" />
-      <span className={cn('font-[650]', TONE_TEXT[q.tone])}>{q.label}</span>
+      <span className={cn('font-[650]', TONE_TEXT[q.tone])}>{t(`tone.${q.tone}`)}</span>
       {q.loss >= 1 && q.tone !== 'best' && (
-        <span className="ml-auto font-mono text-[11px] text-ink-3 tabular-nums" title="Verlorene Gewinnchance">
+        <span className="ml-auto font-mono text-[11px] text-ink-3 tabular-nums" title={t('extras.lostChance')}>
           −{Math.round(q.loss)} %
         </span>
       )}
@@ -103,12 +106,13 @@ export function LastMoveStrip({ state: s }: { state: State }) {
 }
 
 export function ThreatStrip({ state: s }: { state: State }) {
+  const { t: tr } = useTranslation();
   const t = s.threat!;
   const opp = s.turn === 'w' ? 'b' : 'w';
   return (
     <div className="flex h-10 items-center gap-2.5 border-t border-line px-4 text-[12.5px]">
       <span className="size-[7px] rotate-45 bg-threat" />
-      <span className="text-ink-3">Drohung</span>
+      <span className="text-ink-3">{tr('extras.threat')}</span>
       <San san={t.san} color={opp} className="font-[700] text-threat" />
       <span className="truncate text-ink-3">{t.text}</span>
     </div>
@@ -116,20 +120,26 @@ export function ThreatStrip({ state: s }: { state: State }) {
 }
 
 export function GameStrip({ state: s }: { state: State }) {
+  const { t } = useTranslation();
   const { w, b } = s.accuracy;
   if (s.moves.length < 4 || (w == null && b == null)) return null;
   return (
     <div className="flex h-8 items-center gap-3 px-4 text-[12px]">
-      <span className="text-ink-3">Genauigkeit</span>
+      <span className="text-ink-3">{t('extras.accuracy')}</span>
       <span className="ml-auto flex gap-4 font-mono text-ink-2 tabular-nums">
-        <span>Weiß {w ?? '–'}</span>
-        <span>Schwarz {b ?? '–'}</span>
+        <span>
+          {t('extras.white')} {w ?? '–'}
+        </span>
+        <span>
+          {t('extras.black')} {b ?? '–'}
+        </span>
       </span>
     </div>
   );
 }
 
 export function VisionStrip({ state: s, send }: { state: State; send: (m: ToContent) => void }) {
+  const { t } = useTranslation();
   const v = s.vision;
   if (s.source !== 'bild' || v.phase === 'off') return null;
   const learned = v.phase === 'scanning' && v.learned;
@@ -137,21 +147,21 @@ export function VisionStrip({ state: s, send }: { state: State; send: (m: ToCont
     <div className="flex items-center gap-2 border-t border-line px-4 py-2 text-[12px]">
       <ScanLine className="size-3.5 shrink-0 text-ink-3" />
       <span className="min-w-0 flex-1 truncate text-ink-2">
-        {learned ? 'Figuren dieser Seite gelernt' : 'Grundstellung zeigen = sichere Erkennung'}
+        {learned ? t('extras.learned') : t('extras.showStart')}
       </span>
       <button
         type="button"
         onClick={() => send({ type: 'vision', action: 'mark' })}
         className="rounded px-1.5 py-0.5 font-[600] text-ink-2 hover:bg-sunken hover:text-ink"
       >
-        Neu
+        {t('extras.new')}
       </button>
       <button
         type="button"
         onClick={() => send({ type: 'vision', action: 'stop' })}
         className="rounded px-1.5 py-0.5 font-[600] text-ink-3 hover:bg-sunken hover:text-ink"
       >
-        Beenden
+        {t('extras.end')}
       </button>
     </div>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chess, type Move, type Square } from 'chess.js';
 import type { Key } from '@lichess-org/chessground/types';
 import { Flag, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -20,13 +21,14 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Ergebnis als Schlüssel der Übersetzung (site.*). */
 function result(g: Chess, human: Side, resigned: boolean): string | null {
-  if (resigned) return 'Du hast aufgegeben';
-  if (g.isCheckmate()) return g.turn() === human ? 'Schachmatt – Chess Bot 1 gewinnt' : 'Schachmatt – du gewinnst';
-  if (g.isStalemate()) return 'Patt – remis';
-  if (g.isThreefoldRepetition()) return 'Remis durch Wiederholung';
-  if (g.isInsufficientMaterial()) return 'Remis – zu wenig Material';
-  if (g.isDraw()) return 'Remis – 50-Züge-Regel';
+  if (resigned) return 'resigned';
+  if (g.isCheckmate()) return g.turn() === human ? 'botWinsMate' : 'youWinMate';
+  if (g.isStalemate()) return 'stalemate';
+  if (g.isThreefoldRepetition()) return 'repetition';
+  if (g.isInsufficientMaterial()) return 'material';
+  if (g.isDraw()) return 'fiftyMoves';
   return null;
 }
 
@@ -55,6 +57,7 @@ declare global {
 }
 
 export function App() {
+  const { t } = useTranslation();
   const bot = useMemo(() => new ChessBot1(ENGINE), []);
   const game = useRef(new Chess());
   const gameId = useRef(0);
@@ -204,7 +207,7 @@ export function App() {
       <header className="flex h-16 items-center gap-2.5">
         <BrandMark className="size-6" />
         <span className="text-[17px] font-[750] tracking-[-0.02em] text-ink">Zugblick</span>
-        <span className="ml-1 text-[14px] text-ink-3">Partie</span>
+        <span className="ml-1 text-[14px] text-ink-3">{t('site.game')}</span>
       </header>
 
       <main className="grid items-start gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
@@ -222,19 +225,21 @@ export function App() {
               onMove={onMove}
             />
           </div>
-          <PlayerStrip name="Du" side={human} active={!over && turn === human} status={piloting ? 'pilot' : null} />
+          <PlayerStrip name={t('site.you')} side={human} active={!over && turn === human} status={piloting ? 'pilot' : null} />
         </section>
 
         <aside className="flex flex-col overflow-hidden rounded-[12px] border border-line bg-surface md:sticky md:top-4 md:h-[min(640px,calc(100dvh-120px))]">
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-line px-4">
-            <span className="text-[13px] font-[650] text-ink">Züge</span>
-            {moves.length > 0 && <span className="font-mono text-[11.5px] text-ink-3 tabular-nums">{moves.length} Halbzüge</span>}
+            <span className="text-[13px] font-[650] text-ink">{t('site.moves')}</span>
+            {moves.length > 0 && (
+              <span className="font-mono text-[11.5px] text-ink-3 tabular-nums">{t('site.plies', { count: moves.length })}</span>
+            )}
           </div>
 
           <div className="min-h-[120px] flex-1 overflow-y-auto px-2 py-2 max-md:max-h-[240px]">
             {pairs.length === 0 ? (
               <p className="px-2 py-1 text-[13px] text-ink-3">
-                {human === 'w' ? 'Du hast Weiß. Zieh einfach los.' : 'Chess Bot 1 hat Weiß und eröffnet.'}
+                {human === 'w' ? t('site.youHaveWhite') : t('site.botHasWhite')}
               </p>
             ) : (
               <ol className="grid grid-cols-[32px_1fr_1fr] gap-y-px text-[13.5px]">
@@ -252,28 +257,28 @@ export function App() {
 
           {over && (
             <div className="zb-rise mx-3 mb-3 rounded-[10px] bg-brand-soft px-3.5 py-3">
-              <p className="text-[14.5px] font-[700] text-ink">{over}</p>
-              <p className="mt-0.5 text-[12.5px] text-ink-2">Noch eine Partie?</p>
+              <p className="text-[14.5px] font-[700] text-ink">{t(`site.${over}`)}</p>
+              <p className="mt-0.5 text-[12.5px] text-ink-2">{t('site.anotherGame')}</p>
             </div>
           )}
-          {error && <p className="mx-4 mb-3 text-[12.5px] text-threat">Stockfish startet nicht: {error}</p>}
+          {error && <p className="mx-4 mb-3 text-[12.5px] text-threat">{t('site.engineError', { error })}</p>}
 
           <div className="shrink-0 space-y-2.5 border-t border-line p-3">
             <label className="flex h-8 cursor-pointer items-center justify-between gap-3 px-0.5">
               <span className="text-[13px] font-[550] text-ink">
-                Chess Bot 1 spielt für mich
+                {t('site.pilot')}
                 <span className="ml-1.5 font-[450] text-ink-3">1–4 s</span>
               </span>
-              <Switch checked={pilot} onCheckedChange={setPilot} aria-label="Chess Bot 1 spielt für mich" />
+              <Switch checked={pilot} onCheckedChange={setPilot} aria-label={t('site.pilot')} />
             </label>
             <div className="flex items-center gap-2">
-              <span className="w-14 text-[12px] text-ink-3">Du spielst</span>
-              <div className="grid flex-1 grid-cols-3 rounded-[8px] bg-sunken p-0.5" role="radiogroup" aria-label="Farbe für die nächste Partie">
+              <span className="w-14 text-[12px] text-ink-3">{t('site.youPlay')}</span>
+              <div className="grid flex-1 grid-cols-3 rounded-[8px] bg-sunken p-0.5" role="radiogroup" aria-label={t('site.colorAria')}>
                 {(
                   [
-                    ['w', 'Weiß'],
-                    ['r', 'Zufall'],
-                    ['b', 'Schwarz'],
+                    ['w', t('site.white')],
+                    ['r', t('site.random')],
+                    ['b', t('site.black')],
                   ] as const
                 ).map(([v, label]) => (
                   <button
@@ -294,7 +299,7 @@ export function App() {
             <div className="flex gap-2">
               <Button className="h-9 flex-1 rounded-[8px] text-[13px] font-[650]" onClick={() => newGame()}>
                 <RotateCcw className="size-3.5" />
-                Neue Partie
+                {t('site.newGame')}
               </Button>
               {!over && moves.length > 0 && (
                 <Button
@@ -308,7 +313,7 @@ export function App() {
                   }}
                 >
                   <Flag className="size-3.5" />
-                  Aufgeben
+                  {t('site.resign')}
                 </Button>
               )}
             </div>
@@ -344,10 +349,11 @@ function PlayerStrip({
   active: boolean;
   status: 'thinking' | 'pilot' | null;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex h-10 items-center gap-2.5 px-0.5">
       <span
-        title={side === 'w' ? 'Weiß' : 'Schwarz'}
+        title={side === 'w' ? t('site.white') : t('site.black')}
         className={cn(
           'size-4 rounded-[4px] border',
           side === 'w' ? 'border-line-strong bg-bar-white' : 'border-line-strong bg-bar-black',
@@ -356,7 +362,7 @@ function PlayerStrip({
       <span className="text-[14px] font-[650] text-ink">{name}</span>
       {status ? (
         <span className={cn('flex items-center gap-1.5 text-[12.5px]', status === 'pilot' ? 'text-brand' : 'text-ink-3')}>
-          {status === 'pilot' ? 'Chess Bot 1 zieht für dich' : 'überlegt'}
+          {status === 'pilot' ? t('site.pilotThinking') : t('site.thinking')}
           <span className="zb-dots flex gap-[3px]">
             <span className="size-1 rounded-full bg-current" />
             <span className="size-1 rounded-full bg-current" />
@@ -364,7 +370,7 @@ function PlayerStrip({
           </span>
         </span>
       ) : (
-        active && <span className="text-[12.5px] text-brand">am Zug</span>
+        active && <span className="text-[12.5px] text-brand">{t('site.toMove')}</span>
       )}
     </div>
   );

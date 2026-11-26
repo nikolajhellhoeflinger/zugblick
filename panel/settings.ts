@@ -1,4 +1,5 @@
 import { store } from '@/platform/current';
+import type { LanguageSetting } from '@/lib/i18n';
 
 export interface Settings {
   /** null = volle Stockfish-Stärke. */
@@ -8,8 +9,11 @@ export interface Settings {
   /** Bedenkzeit beim automatischen Spielen in Sekunden (von, bis). */
   tempoMin: number;
   tempoMax: number;
-  /** gleich: überall zwischen von und bis gleich wahrscheinlich; unregelmaessig: meist kurz, manchmal lang. */
-  tempoArt: 'gleich' | 'unregelmaessig';
+  /**
+   * gleich: überall zwischen von und bis gleich wahrscheinlich; unregelmaessig: meist kurz, manchmal lang;
+   * menschlich: nach Stellung – Eröffnung schnell, Mittelspiel langsamer, schwere Entscheidungen lang, offensichtliche kurz.
+   */
+  tempoArt: 'gleich' | 'unregelmaessig' | 'menschlich';
   /** Nach Partieende automatisch „Neues Spiel“ klicken und weiterspielen. */
   autoNewGame: boolean;
   /** Spielzeit in Minuten für das automatische Spielen; 0 = unbegrenzt. */
@@ -24,6 +28,8 @@ export interface Settings {
   theme: 'auto' | 'light' | 'dark';
   autoStart: boolean;
   compact: boolean;
+  /** Sprache der Oberfläche; auto = Sprache des Browsers. */
+  language: LanguageSetting;
 }
 
 export const DEFAULTS: Settings = {
@@ -44,6 +50,7 @@ export const DEFAULTS: Settings = {
   theme: 'auto',
   autoStart: true,
   compact: false,
+  language: 'auto',
 };
 
 export const DEPTH: Record<Settings['depth'], number> = { fast: 16, normal: 22, deep: 30 };

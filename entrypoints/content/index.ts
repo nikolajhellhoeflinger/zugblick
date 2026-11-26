@@ -19,6 +19,21 @@ export default defineContentScript({
     let dismissed = false;
     let autoStart = true;
     let host: PanelHost | null = null;
+    // Wartezeiten beim Ziehen lässt das Panel wecken: seine Timer drosselt Chrome im Hintergrund-Tab nicht,
+    // normale Timer hier schon (nach 5 Minuten bis auf einmal pro Minute). Antwortet das Panel nicht,
+    // weckt ein normaler Timer etwas später – nie hängen bleiben.
+    let sleepId = 0;
+    const sleepers = new Map<number, () => void>();
+    const panelSleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const id = ++sleepId;
+        const done = () => {
+          if (sleepers.delete(id)) resolve();
+        };
+        sleepers.set(id, done);
+        host?.send({ type: 'sleep', id, ms });
+        window.setTimeout(done, host ? ms + 1500 : ms);
+      });
     let overlay: Overlay | null = null;
     let current: { adapter: BoardAdapter; el: Element } | null = null;
     let observer: MutationObserver | null = null;
@@ -149,7 +164,7 @@ export default defineContentScript({
           {
             click: (sq) => clickSquare(sq),
             placement: boardPlacement,
-            sleep: (ms) => new Promise((r) => window.setTimeout(r, ms)),
+            sleep: panelSleep,
           },
           m,
         );
@@ -235,6 +250,10 @@ export default defineContentScript({
       if (msg.type === 'overlay') {
         overlay?.render(msg.overlay);
         overlay?.place(rect());
+      } else if (msg.type === 'wake') {
+        sleepers.get(msg.id)?.();
+      } else if (msg.type === 'tick') {
+        housekeeping();
       } else if (msg.type === 'newgame') {
         clickNewGame();
       } else if (msg.type === 'autoplay') {
@@ -331,12 +350,14 @@ export default defineContentScript({
 
     ctx.addEventListener(window, 'scroll', placeAll, { capture: true, passive: true });
     ctx.addEventListener(window, 'resize', placeAll, { passive: true });
-    ctx.setInterval(() => {
+    const housekeeping = () => {
       placeAll();
       // Seiten tauschen ihr Brett bei Navigation oft aus (Single-Page-Apps).
       if (active && !vision?.active && (!current || !current.el.isConnected)) readNow();
       if (!active && autoStart && !dismissed && pickAdapter(AUTO_MIN)) activate();
-    }, 700);
+    };
+    // Im Hintergrund-Tab drosselt Chrome diesen Takt; beim Autospielen stößt das Panel ihn zusätzlich an („tick“).
+    ctx.setInterval(housekeeping, 700);
 
     onToggle(() => {
       if (active) {

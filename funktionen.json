@@ -187,5 +187,34 @@
       "Prüfung an Spielern, die beim Einstellen nicht dabei waren"
     ],
     "geprueft": true
+  },
+  {
+    "ablauf": "Sprache einstellbar: Einstellungen → Darstellung → Sprache (Auto/Deutsch/English); Panel, Zugbeschreibungen, Bewertungen, Fehlermeldungen; Website folgt der Browser-Sprache",
+    "schritte": [
+      "113 Texte in beiden Sprachen (Abgleich-Skript)",
+      "26.11.: Einstellungen auf Deutsch und Englisch, hell und dunkel gerendert, Sprache bleibt nach Neuladen"
+    ],
+    "geprueft": true
+  },
+  {
+    "ablauf": "Tempo „Menschlich“: Eröffnung schnell, Mittelspiel langsamer, schwere Entscheidungen lang, offensichtliche Züge kurz – innerhalb der Bedenkzeit von/bis, nur Warten",
+    "schritte": [
+      "Einstellungen → Spielen → Verteilung → Menschlich"
+    ],
+    "geprueft": false
+  },
+  {
+    "ablauf": "Autospielen im Hintergrund-Tab: ungedrosselte Timer (worker-timers) im Panel, Wartezeiten des Inhalts-Skripts vom Panel geweckt",
+    "schritte": [
+      "Autospielen an, anderen Tab öffnen, über 5 Minuten warten"
+    ],
+    "geprueft": false
+  },
+  {
+    "ablauf": "Chess Bot 1 Abstand nachgeschärft (Zielkorrektur, Gewinn-Sperre feiner)",
+    "schritte": [
+      "Testreihe 26.11.: 20/20 gewonnen gegen Stockfish Stufe 0 bis 2000 Elo, nie unter 80, 17/20 im Soll (2–6 über dem Gegner bzw. mind. 80)"
+    ],
+    "geprueft": true
   }
 ]

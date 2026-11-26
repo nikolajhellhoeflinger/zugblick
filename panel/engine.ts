@@ -89,7 +89,7 @@ export class Engine {
     w.onmessage = (e) => this.onLine(String(e.data));
     w.onerror = (e) => {
       e.preventDefault?.();
-      this.recover(e.message || 'Stockfish konnte nicht starten.');
+      this.recover(e.message || 'engine-failed');
     };
     w.postMessage('uci');
     return w;

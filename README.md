@@ -15,6 +15,7 @@
 - **Figur anklicken** – zeigt den besten Zug genau dieser Figur und wie viel schwächer er als der beste Zug ist.
 - **Stärke wählbar** – von 2000 Elo bis volle Stockfish-Stärke.
 - **Züge bewerten** – Bester Zug, Gut, Ungenau, Fehler, Patzer direkt am Feld, dazu die Genauigkeit beider Seiten (an die Accuracy von chess.com angenähert).
+- **Deutsch oder Englisch** – in den Einstellungen umschaltbar, sonst nach der Sprache des Browsers.
 - **Drohung zeigen** – was der Gegner vorhat, wenn du nichts tust.
 - **Jede Schachseite** – chess.com und lichess werden direkt gelesen, alles andere (Canvas-Bretter, Videos, Bilder) per Bilderkennung. Zugblick lernt die Figuren einer Seite, sobald einmal die Grundstellung zu sehen ist.
 - **Hell und dunkel, Großansicht** für Beamer, Tastenkürzel **Alt+Shift+Z** zum Ein- und Ausblenden.

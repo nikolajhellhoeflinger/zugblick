@@ -1,6 +1,6 @@
 {
   "name": "zugblick",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "private": true,
   "description": "Stockfish in Echtzeit auf jeder Schachseite – Browser-Erweiterung für Chrome, Edge und Brave.",
   "license": "GPL-3.0-or-later",
@@ -26,11 +26,15 @@
     "chess.js": "1.4.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "i18next": "27.2.9",
     "lucide-react": "1.78.0",
     "radix-ui": "1.8.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "tailwind-merge": "3.7.1"
+    "react-i18next": "18.0.3",
+    "tailwind-merge": "3.7.1",
+    "worker-timers-broker": "8.0.18",
+    "worker-timers-worker": "9.0.15"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.5",

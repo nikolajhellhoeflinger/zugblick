@@ -58,6 +58,27 @@ const CAP = 99;
 /** Größter Verlust an Gewinnchance in einem Zug – darüber wäre es ein Patzer. */
 const MAX_LOSS = 12;
 
+/** Stellschrauben der Zugwahl (Testreihen verändern sie, um Varianten zu vergleichen). */
+export const TUNE = {
+  /** Mindest-Gewinnchance nach dem Zug je Partiephase: bis Zug 10, bis 18, bis 26, danach. */
+  // Werte aus der Testreihe vom 26.11.2026 (Variante 3): 20/20 gewonnen, nie unter 80, 17/20 im Soll.
+  need: [40, 52, 60, 68],
+  /** „Eng“, wenn die beste Gewinnchance weniger als so viel über dem Minimum liegt → volle Kraft. */
+  tightMargin: 5,
+  /** Tempomat: Abweichung × min(Züge, 30) / steerDiv. */
+  steerDiv: 10,
+  /** So weit darf das Ziel für einen einzelnen Zug unter das Partieziel fallen. */
+  steerRange: 35,
+  /** Kandidaten bis Budget × capMul + 1,5 zulassen. */
+  capMul: 1.3,
+  /** Klar gewonnen: zügig zu Ende spielen ab diesem Zug oder so vielen Halbzügen ohne Schlag/Bauernzug. */
+  finishMove: 45,
+  finishHalfmoves: 26,
+  /** Der Bot überschießt sein Ziel erfahrungsgemäß: so viel niedriger zielen (Abstand bzw. Minimum). */
+  aimBelowGap: 3,
+  aimBelowFloor: 2,
+};
+
 const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -287,18 +308,18 @@ export class ChessBot1 {
     const opp = acc[them].moves >= 2 ? acc[them].value : null;
     const mine = acc[me].value;
     const gap = this.gapFor(history, random);
-    const target = clamp((opp ?? 88) + gap, FLOOR, CAP);
+    const target = clamp(Math.max((opp ?? 88) + gap - TUNE.aimBelowGap, FLOOR - TUNE.aimBelowFloor), 0, CAP);
     // Tempomat: Abweichung vom Ziel über die nächsten Züge ausgleichen – je länger die Partie, desto kräftiger.
-    const steer = mine == null ? 0 : ((target - mine) * Math.min(acc[me].moves, 30)) / 10;
-    let budget = 100 * lossForAccuracy(clamp(target + steer, target - 30, 100));
+    const steer = mine == null ? 0 : ((target - mine) * Math.min(acc[me].moves, 30)) / TUNE.steerDiv;
+    let budget = 100 * lossForAccuracy(clamp(target + steer, target - TUNE.steerRange, 100));
     // Gewinn-Sperre: Mindest-Gewinnchance nach dem Zug, steigt mit der Partie.
-    const need = moveNo <= 10 ? 40 : moveNo <= 18 ? 55 : moveNo <= 26 ? 65 : 72;
-    const tight = bestDeep < need + 8;
+    const need = TUNE.need[moveNo <= 10 ? 0 : moveNo <= 18 ? 1 : moveNo <= 26 ? 2 : 3]!;
+    const tight = bestDeep < need + TUNE.tightMargin;
     // Wird es eng, volle Kraft, bis der Vorsprung wieder da ist.
     if (tight) budget = Math.min(budget, 1.5);
     // Klar gewonnen und die Partie zieht sich: zügig zu Ende spielen.
     const halfmoves = Number(fen.split(' ')[4] ?? 0);
-    if (bestDeep >= 97 && (moveNo >= 30 || halfmoves >= 20)) budget = Math.min(budget, 1.5);
+    if (bestDeep >= 97 && (moveNo >= TUNE.finishMove || halfmoves >= TUNE.finishHalfmoves)) budget = Math.min(budget, 1.5);
     const plan: Plan = { own: mine, opp, gap, target, budget, need };
 
     const pick = (c: Candidate, why: Choice['why']): Choice => ({
@@ -318,7 +339,7 @@ export class ChessBot1 {
     if (mate != null && mate > 0 && best === candidates[0]) return pick(best, 'sicher');
 
     const book = moveNo <= 8;
-    const cap = Math.min(MAX_LOSS, budget + 1.5, book ? 5 : MAX_LOSS);
+    const cap = Math.min(MAX_LOSS, budget * TUNE.capMul + 1.5, book ? 5 : MAX_LOSS);
     const floorWin = Math.min(need, bestDeep - 1.5);
     let pool = playable.filter((c) => (tight || !c.hidden) && c.loss <= cap && c.win >= floorWin);
     if (!pool.length) pool = playable.filter((c) => c.loss <= 1.5);

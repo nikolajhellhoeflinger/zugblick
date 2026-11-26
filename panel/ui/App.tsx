@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ChevronDown, ChevronUp, Settings2, X, ArrowLeft, Play, Square } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { ToContent } from '@/lib/protocol';
 import { cn } from '@/lib/utils';
@@ -12,15 +13,15 @@ import { Strength } from './Strength';
 import { SettingsView } from './SettingsView';
 import { IconButton } from './IconButton';
 
+// Schlüssel der Übersetzung (app.*) oder fester Name.
 const SOURCE_LABEL: Record<string, string> = {
-  'chess.com': 'chess.com',
-  lichess: 'lichess',
-  chessground: 'Brett erkannt',
-  'chessboard.js': 'Brett erkannt',
-  bild: 'Bilderkennung',
+  chessground: 'app.boardFound',
+  'chessboard.js': 'app.boardFound',
+  bild: 'app.image',
 };
 
 export function App({ controller, send }: { controller: Controller; send: (m: ToContent) => void }) {
+  const { t } = useTranslation();
   const s = useSyncExternalStore(controller.subscribe, controller.getState);
   const [view, setView] = useState<'main' | 'settings'>('main');
   const root = useRef<HTMLDivElement>(null);
@@ -96,10 +97,10 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
         >
           {view === 'settings' ? (
             <>
-              <IconButton label="Zurück" onClick={() => setView('main')} className="-ml-2">
+              <IconButton label={t('app.back')} onClick={() => setView('main')} className="-ml-2">
                 <ArrowLeft />
               </IconButton>
-              <span className="text-[14px] font-[650]">Einstellungen</span>
+              <span className="text-[14px] font-[650]">{t('app.settings')}</span>
             </>
           ) : (
             <>
@@ -107,7 +108,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
               <span className="text-[15px] font-[750] tracking-[-0.01em]">Zugblick</span>
               {s.source === 'bild' && (
                 <span className="ml-1 truncate rounded-[5px] bg-sunken px-1.5 py-[3px] font-mono text-[10.5px] leading-none text-ink-2">
-                  {SOURCE_LABEL[s.source] ?? s.source}
+                  {SOURCE_LABEL[s.source] ? t(SOURCE_LABEL[s.source]!) : s.source}
                 </span>
               )}
             </>
@@ -115,18 +116,18 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
           <div className="ml-auto flex items-center">
             {view === 'main' && (
               <IconButton
-                label={settings.compact ? 'Ausklappen' : 'Einklappen'}
+                label={settings.compact ? t('app.expand') : t('app.collapse')}
                 onClick={() => controller.updateSettings({ compact: !settings.compact })}
               >
                 {settings.compact ? <ChevronDown /> : <ChevronUp />}
               </IconButton>
             )}
             {view === 'main' && (
-              <IconButton label="Einstellungen" onClick={() => setView('settings')}>
+              <IconButton label={t('app.settings')} onClick={() => setView('settings')}>
                 <Settings2 />
               </IconButton>
             )}
-            <IconButton label="Schließen (Alt+Shift+Z)" onClick={() => send({ type: 'close' })}>
+            <IconButton label={t('app.close')} onClick={() => send({ type: 'close' })}>
               <X />
             </IconButton>
           </div>
@@ -150,7 +151,7 @@ export function App({ controller, send }: { controller: Controller; send: (m: To
                   )}
                 >
                   {s.autoplay ? <Square className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
-                  {s.autoplay ? 'Ausschalten' : 'Anschalten'}
+                  {s.autoplay ? t('app.stop') : t('app.start')}
                 </button>
               </div>
             )}

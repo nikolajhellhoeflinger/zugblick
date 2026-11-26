@@ -16,6 +16,7 @@ export default defineConfig({
     alias: [
       // Website ohne Erweiterungs-Schnittstellen: eigene Plattform-Schicht (vor '@', sonst greift die allgemeine Regel).
       { find: /^@\/platform\/current$/, replacement: `${root.replace(/\/$/, '')}/platform/site.ts` },
+      { find: /^@\/platform\/timers$/, replacement: `${root.replace(/\/$/, '')}/platform/timers-plain.ts` },
       { find: '@', replacement: root.replace(/\/$/, '') },
     ],
   },

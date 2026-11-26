@@ -28,7 +28,7 @@ function setStyles(el: HTMLElement, styles: Record<string, string>) {
 
 async function capture(): Promise<ImageBitmap> {
   const res = await captureTab();
-  if (!res?.dataUrl) throw new Error(res?.error || 'Bildschirmfoto nicht möglich');
+  if (!res?.dataUrl) throw new Error(res?.error || 'capture-failed');
   // data:-URL selbst dekodieren – fetch() könnte an der CSP der Seite scheitern.
   const b64 = res.dataUrl.slice(res.dataUrl.indexOf(',') + 1);
   const bin = atob(b64);

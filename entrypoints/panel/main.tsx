@@ -1,9 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from '@/panel/ui/App';
+import '@/lib/i18n';
 import { Controller } from '@/panel/controller';
 import type { ToContent, ToPanel } from '@/lib/protocol';
 import { panelNonce } from '@/platform/current';
+import { timers } from '@/platform/timers';
 import './style.css';
 
 const controller = new Controller();
@@ -21,6 +23,7 @@ controller.onOverlay((overlay) => send({ type: 'overlay', overlay }));
 controller.onPlay((m) => send({ type: 'play', ...m }));
 controller.onNewGame(() => send({ type: 'newgame' }));
 controller.onAutoplay((on, until) => send({ type: 'autoplay', on, until }));
+controller.onTick(() => send({ type: 'tick' }));
 
 // Der Schlüssel kommt über das Adress-Fragment, das nur das Inhalts-Skript kennt.
 const nonce = panelNonce();
@@ -39,6 +42,7 @@ window.addEventListener('message', (e: MessageEvent) => {
     else if (msg.type === 'vision') controller.setVision(msg.state);
     else if (msg.type === 'move-result') controller.moveResult(msg.ok, msg.stale);
     else if (msg.type === 'resume') controller.resumeAutoplay(msg.until);
+    else if (msg.type === 'sleep') timers.setTimeout(() => send({ type: 'wake', id: msg.id }), msg.ms);
   };
   port.postMessage({ type: 'ready' } satisfies ToContent);
   for (const m of outbox.splice(0)) port.postMessage(m);

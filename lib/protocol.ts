@@ -47,7 +47,9 @@ export type ToPanel =
   | { type: 'vision'; state: VisionState }
   | { type: 'move-result'; ok: boolean; stale: boolean }
   /** Nach Neuladen: Autospielen lief eben noch (until = Spielzeit-Ende, 0 = unbegrenzt). */
-  | { type: 'resume'; until: number };
+  | { type: 'resume'; until: number }
+  /** Inhalts-Skript bittet ums Wecken nach `ms` (ungedrosselte Panel-Timer, Antwort: `wake`). */
+  | { type: 'sleep'; id: number; ms: number };
 
 export type VisionState =
   | { phase: 'off' }
@@ -64,5 +66,8 @@ export type ToContent =
   | { type: 'close' }
   | { type: 'play'; from: string; to: string; promotion: boolean; before: string; after: string }
   | { type: 'newgame' }
+  | { type: 'wake'; id: number }
+  /** Takt beim Autospielen, damit das Inhalts-Skript auch im Hintergrund-Tab nach dem Brett sieht. */
+  | { type: 'tick' }
   | { type: 'autoplay'; on: boolean; until: number }
   | { type: 'vision'; action: 'mark' | 'stop' | 'learn' | 'forget' };

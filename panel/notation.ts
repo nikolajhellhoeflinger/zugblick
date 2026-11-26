@@ -1,6 +1,7 @@
 import { Chess, type Move } from 'chess.js';
 import type { Color } from '@/lib/board';
 import type { Score } from './engine';
+import { t } from '@/lib/i18n';
 
 export function load(fen: string): Chess | null {
   try {
@@ -48,33 +49,25 @@ export function moveFromUci(fen: string, uci: string): Move | null {
   return game ? playUci(game, uci) : null;
 }
 
-const NAMES: Record<string, string> = {
-  k: 'König',
-  q: 'Dame',
-  r: 'Turm',
-  b: 'Läufer',
-  n: 'Springer',
-  p: 'Bauer',
-};
-
 export function pieceName(p: string): string {
-  return NAMES[p.toLowerCase()] ?? '';
+  const k = p.toLowerCase();
+  return 'kqrbnp'.includes(k) && k ? t(`piece.${k}`) : '';
 }
 
 /** Zug in Worten, z. B. „Springer von g1 nach f3“. */
 export function describe(m: Move): string {
   let text: string;
-  if (m.san.startsWith('O-O-O')) text = 'Lange Rochade';
-  else if (m.san.startsWith('O-O')) text = 'Kurze Rochade';
+  if (m.san.startsWith('O-O-O')) text = t('move.castleLong');
+  else if (m.san.startsWith('O-O')) text = t('move.castleShort');
   else {
-    const name = NAMES[m.piece] ?? '';
+    const piece = pieceName(m.piece);
     text = m.captured
-      ? `${name} ${m.from} schlägt ${NAMES[m.captured] ?? ''} auf ${m.to}`
-      : `${name} von ${m.from} nach ${m.to}`;
-    if (m.promotion) text += `, wird zur ${NAMES[m.promotion]}`;
+      ? t('move.capture', { piece, from: m.from, captured: pieceName(m.captured), to: m.to })
+      : t('move.go', { piece, from: m.from, to: m.to });
+    if (m.promotion && 'qrbn'.includes(m.promotion)) text += t(`move.promote.${m.promotion}`);
   }
-  if (m.san.endsWith('#')) text += ' – Schachmatt';
-  else if (m.san.endsWith('+')) text += ', Schach';
+  if (m.san.endsWith('#')) text += t('move.mate');
+  else if (m.san.endsWith('+')) text += t('move.check');
   return text;
 }
 

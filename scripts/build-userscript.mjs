@@ -10,6 +10,7 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const pkg = JSON.parse(readFileSync(root + 'package.json', 'utf8'));
 const alias = [
   { find: /^@\/platform\/current$/, replacement: root + 'platform/userscript.ts' },
+  { find: /^@\/platform\/timers$/, replacement: root + 'platform/timers-plain.ts' },
   { find: /^[@~]\//, replacement: root },
 ];
 const common = {

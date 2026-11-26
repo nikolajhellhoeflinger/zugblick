@@ -12,6 +12,12 @@ export default defineConfig({
   publicDir: fileURLToPath(new URL('../public', import.meta.url)),
   plugins: [tailwindcss()],
   esbuild: { jsx: 'automatic' },
-  resolve: { alias: { '@': root.replace(/\/$/, '') } },
+  resolve: {
+    alias: [
+      // Website ohne Erweiterungs-Schnittstellen: eigene Plattform-Schicht (vor '@', sonst greift die allgemeine Regel).
+      { find: /^@\/platform\/current$/, replacement: `${root.replace(/\/$/, '')}/platform/site.ts` },
+      { find: '@', replacement: root.replace(/\/$/, '') },
+    ],
+  },
   build: { outDir: 'dist', emptyOutDir: true },
 });
